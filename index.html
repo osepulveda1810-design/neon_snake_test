@@ -15,11 +15,12 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             height: 100vh; margin: 0; overflow: hidden;
             user-select: none; -webkit-user-select: none;
+            transition: color 0.5s ease;
         }
 
         #gameUI { display: none; flex-direction: column; align-items: center; justify-content: center; }
 
-        h1 { margin: 10px 0 5px 0; font-size: 24px; color: #0ff; text-shadow: 0 0 10px #0ff, 0 0 20px #0ff; letter-spacing: 4px; }
+        h1 { margin: 10px 0 5px 0; font-size: 24px; color: #0ff; text-shadow: 0 0 10px #0ff, 0 0 20px #0ff; letter-spacing: 4px; transition: all 0.5s ease; }
 
         #ui-superior {
             display: flex; justify-content: space-between; align-items: center;
@@ -30,7 +31,7 @@
 
         .btn-ui {
             font-family: 'Courier New', Courier, monospace; font-size: 10px; font-weight: bold;
-            padding: 5px 8px; background-color: transparent; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+            padding: 5px 8px; background-color: transparent; border-radius: 4px; cursor: pointer; transition: all 0.5s ease;
         }
         .btn-ui:active { transform: scale(0.95); filter: brightness(1.5); }
         #btnVelocidad { color: #ffff00; border: 2px solid #ffff00; box-shadow: 0 0 5px #ffff00; }
@@ -45,6 +46,7 @@
             background-color: #000; border: 2px solid #0ff; width: 100%; height: 100%; 
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.1);
             border-radius: 4px; display: block;
+            transition: border-color 0.5s ease, box-shadow 0.5s ease;
         }
 
         #menuOverlay, #gameOverOverlay, #rankingOverlay, #pauseOverlay {
@@ -111,7 +113,7 @@
             width: 65px; height: 65px; font-size: 26px; background: transparent; color: #0ff;
             border: 2px solid #0ff; border-radius: 12px; cursor: pointer; display: flex;
             align-items: center; justify-content: center;
-            box-shadow: 0 0 10px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.2); transition: 0.1s;
+            box-shadow: 0 0 10px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.2); transition: all 0.5s ease;
             -webkit-tap-highlight-color: transparent;
         }
         .boton-flecha:active { background: rgba(0, 255, 255, 0.2); box-shadow: 0 0 20px #0ff; transform: scale(0.95); }
@@ -130,7 +132,7 @@
     </div>
 
     <div id="gameUI">
-        <h1>NEON SNAKE</h1>
+        <h1 id="tituloJuego">NEON SNAKE</h1>
         <div id="ui-superior">
             <div id="puntuacion">PUNTOS: 0</div>
             <div class="contenedor-botones">
@@ -185,7 +187,7 @@
         const grid = 20;
         let count = 0, score = 0, isPaused = false, isPlaying = false, isGameOver = false;
         
-        // --- SISTEMA DE AUDIO REPARADO CON AISLAMIENTO DE VOCES ---
+        // --- SISTEMA DE AUDIO CON AISLAMIENTO DE VOCES ---
         let audioCtx, musicCtx, soundEnabled = true, musicInterval;
         let noiseBuffer = null;
 
@@ -280,12 +282,19 @@
         function playDeathSound() { playTone(300, 0.3, 'sawtooth', 0.4); setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.5), 200); }
         function playLevelUpSound() { playTone(1200, 0.1, 'sine', 0.3); setTimeout(() => playTone(1600, 0.2, 'sine', 0.3), 100); }
 
-        // --- CONFIGURACIÓN GENERAL DEL JUEGO ---
-        const velocidades = [ { nombre: "1", retraso: 16 }, { nombre: "2", retraso: 12 }, { nombre: "3", retraso: 7 }, { nombre: "4", retraso: 4 } ];
-        let indiceVelocidad = 0, frameDelay = velocidades[indiceVelocidad].retraso;
+        // --- CONFIGURACIÓN GENERAL Y MECÁNICA DE COLORES NEÓN ---
+        // Lista de colores de la temática Neón
+        const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff'];
+        let colorNeonActual = '#0ff'; // Color inicial (Cian)
+
+        // Sistema de velocidad dinámica (cada 300 puntos reduce el frameDelay para ir más rápido)
+        // Partimos en velocidad Base con retraso de 16 frames. Cada nivel baja de a 3 frames.
+        let nivelActual = 0;
+        let frameDelay = 16; 
+        
         let particulas = [], flashOpacity = 0;
         
-        // VARIABLES DE MOVIMIENTO CON BUFFER OPTIMIZADO
+        // Variables de movimiento con cola optimizada (Anti-Bugs)
         let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         let inputQueue = []; 
 
@@ -296,10 +305,62 @@
 
         function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min)) + min; }
         function generarPosicion() { return { x: getRandomInt(0, 20) * grid, y: getRandomInt(0, 20) * grid }; }
-        function updateSpeedUI() { document.getElementById('btnVelocidad').innerText = velocidades[indiceVelocidad].nombre; }
-        function checkAutoSpeed() { let vr = Math.min(velocidades.length - 1, Math.floor(score / 350)); if (vr > indiceVelocidad) { indiceVelocidad = vr; frameDelay = velocidades[indiceVelocidad].retraso; updateSpeedUI(); playLevelUpSound(); } }
+        
+        function updateSpeedUI() { 
+            document.getElementById('btnVelocidad').innerText = (nivelActual + 1); 
+        }
 
-        function guardarEstado() { localStorage.setItem('neonSnakeSave', JSON.stringify({ snake, score, manzanaRoja, manzanaVerde, manzanaAmarilla, indiceVelocidad })); }
+        // NUEVO: Monitorea la puntuación para subir velocidad y cambiar color dinámicamente cada 300 puntos
+        function checkAutoSpeed() { 
+            let nuevoNivel = Math.floor(score / 300); 
+            if (nuevoNivel > nivelActual) { 
+                nivelActual = nuevoNivel;
+                
+                // Reducimos el frameDelay (mínimo 3 frames para que no sea injugable)
+                frameDelay = Math.max(3, 16 - (nivelActual * 3)); 
+                
+                // Cambiar a un color neón aleatorio diferente al actual
+                let coloresDisponibles = COLORES_NEON.filter(c => c !== colorNeonActual);
+                colorNeonActual = coloresDisponibles[Math.floor(Math.random() * coloresDisponibles.length)];
+                
+                // Aplicar el nuevo color neón dinámicamente en los elementos del DOM de la interfaz
+                aplicarColorNeonInterfaz(colorNeonActual);
+                
+                updateSpeedUI(); 
+                playLevelUpSound(); 
+            } 
+        }
+
+        function aplicarColorNeonInterfaz(color) {
+            // Título
+            const titulo = document.getElementById('tituloJuego');
+            titulo.style.color = color;
+            titulo.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
+            
+            // Canvas
+            canvas.style.borderColor = color;
+            canvas.style.boxShadow = `0 0 15px ${color}4d, inset 0 0 15px ${color}1a`; // Añade opacidad en hex
+            
+            // Botones de control en pantalla
+            document.querySelectorAll('.boton-flecha').forEach(btn => {
+                btn.style.color = color;
+                btn.style.borderColor = color;
+                btn.style.boxShadow = `0 0 10px ${color}, inset 0 0 10px ${color}33`;
+            });
+
+            // Botón de sonido de la interfaz superior
+            const btnS = document.getElementById('btnSonido');
+            btnS.style.color = color;
+            btnS.style.borderColor = color;
+            btnS.style.boxShadow = `0 0 5px ${color}`;
+        }
+
+        function restaurarColorInicial() {
+            colorNeonActual = '#0ff'; // Reset a Cian
+            aplicarColorNeonInterfaz('#0ff');
+        }
+
+        function guardarEstado() { localStorage.setItem('neonSnakeSave', JSON.stringify({ snake, score, manzanaRoja, manzanaVerde, manzanaAmarilla, nivelActual, frameDelay, colorNeonActual })); }
         function cargarEstado() { 
             let s = localStorage.getItem('neonSnakeSave'); 
             if (s) { 
@@ -309,15 +370,19 @@
                 manzanaRoja = e.manzanaRoja; 
                 manzanaVerde = e.manzanaVerde; 
                 manzanaAmarilla = e.manzanaAmarilla; 
-                indiceVelocidad = e.indiceVelocidad; 
-                frameDelay = velocidades[indiceVelocidad].retraso; 
+                nivelActual = e.nivelActual || 0; 
+                frameDelay = e.frameDelay || 16;
+                colorNeonActual = e.colorNeonActual || '#0ff';
                 inputQueue = []; 
+                
+                aplicarColorNeonInterfaz(colorNeonActual);
                 updateSpeedUI(); 
                 document.getElementById('puntuacion').innerText = "PUNTOS: " + score; 
                 return true; 
             } 
             return false; 
         }
+        
         function hayPartidaGuardada() { return localStorage.getItem('neonSnakeSave') !== null; }
         function guardarRanking(p) { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); r.push(p); r.sort((a, b) => b - a); if(r.length > 5) r = r.slice(0, 5); localStorage.setItem('neonSnakeRanking', JSON.stringify(r)); }
         
@@ -334,11 +399,12 @@
             snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 }; 
             inputQueue = []; 
             score = 0; 
-            indiceVelocidad = 0; 
-            frameDelay = velocidades[indiceVelocidad].retraso; 
+            nivelActual = 0; 
+            frameDelay = 16; 
             manzanaRoja = generarPosicion(); 
             manzanaVerde = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 100 }; 
             manzanaAmarilla = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 200 }; 
+            restaurarColorInicial();
         }
         
         function triggerGameOver() { isPlaying = false; isGameOver = true; playDeathSound(); guardarRanking(score); localStorage.removeItem('neonSnakeSave'); document.getElementById('goScore').innerText = score + " PUNTOS"; apagarJuego(); mostrar('gameOverOverlay'); }
@@ -360,7 +426,7 @@
             }
         }
         
-        function dibujarGrid() { ctx.strokeStyle='rgba(0,255,255,0.05)';ctx.lineWidth=1;for(let i=0;i<=canvas.width;i+=grid){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,canvas.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(canvas.width,i);ctx.stroke();} }
+        function dibujarGrid() { ctx.strokeStyle='rgba(0,255,255,0.03)';ctx.lineWidth=1;for(let i=0;i<=canvas.width;i+=grid){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,canvas.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(canvas.width,i);ctx.stroke();} }
         function dibujarManzana(m, c) { let mo=true; if(m.timerVida<180&&m.timerVida>0) mo=m.timerVida%10<5; if(mo){ctx.shadowBlur=20;ctx.shadowColor=c;ctx.fillStyle=c;ctx.fillRect(m.x+2,m.y+2,grid-4,grid-4);ctx.shadowBlur=0;} }
 
         function loop() {
@@ -383,13 +449,30 @@
             if (!manzanaVerde.activa) { manzanaVerde.timerSpawn--; if (manzanaVerde.timerSpawn <= 0) { let np=generarPosicion(); manzanaVerde.x=np.x; manzanaVerde.y=np.y; manzanaVerde.activa=true; manzanaVerde.timerVida=TIEMPO_VIDA_BONUS; manzanaVerde.timerSpawn=TIEMPO_RESPAWN_VERDE; } } else { manzanaVerde.timerVida--; if (manzanaVerde.timerVida <= 0) manzanaVerde.activa = false; }
             if (!manzanaAmarilla.activa) { manzanaAmarilla.timerSpawn--; if (manzanaAmarilla.timerSpawn <= 0) { let np=generarPosicion(); manzanaAmarilla.x=np.x; manzanaAmarilla.y=np.y; manzanaAmarilla.activa=true; manzanaAmarilla.timerVida=TIEMPO_VIDA_BONUS; manzanaAmarilla.timerSpawn=TIEMPO_RESPAWN_AMARILLA; } } else { manzanaAmarilla.timerVida--; if (manzanaAmarilla.timerVida <= 0) manzanaAmarilla.activa = false; }
             dibujarManzana(manzanaRoja, '#ff073a'); if (manzanaVerde.activa) dibujarManzana(manzanaVerde, '#39ff14'); if (manzanaAmarilla.activa) dibujarManzana(manzanaAmarilla, '#ffff00');
-            snake.cells.forEach(function(cell, index) { ctx.shadowBlur = 15; ctx.shadowColor = '#0ff'; ctx.fillStyle = (index === 0) ? '#ffffff' : '#0ff'; ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2); ctx.shadowBlur = 0; for (let i = index + 1; i < snake.cells.length; i++) { if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) { triggerGameOver(); return; } } });
+            
+            // DIBUJAR SERPIENTE: Usa el color neón actual de los niveles para el cuerpo
+            snake.cells.forEach(function(cell, index) { 
+                ctx.shadowBlur = 15; 
+                ctx.shadowColor = colorNeonActual; 
+                ctx.fillStyle = (index === 0) ? '#ffffff' : colorNeonActual; 
+                ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2); 
+                ctx.shadowBlur = 0; 
+                for (let i = index + 1; i < snake.cells.length; i++) { 
+                    if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) { 
+                        triggerGameOver(); 
+                        return; 
+                    } 
+                } 
+            });
+            
             for (let i = particulas.length - 1; i >= 0; i--) { let p=particulas[i]; p.x+=p.dx; p.y+=p.dy; p.life-=0.04; if(p.life<=0){particulas.splice(i,1);continue;} ctx.shadowBlur=10;ctx.shadowColor=p.color;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.shadowBlur=0; }
             let head = snake.cells[0];
             if (head.x === manzanaRoja.x && head.y === manzanaRoja.y) { score += 10; playEatRedSound(); crearExplosion(manzanaRoja.x + grid/2, manzanaRoja.y + grid/2, '#ff073a'); manzanaRoja = generarPosicion(); snake.maxCells++; }
             if (manzanaVerde.activa && head.x === manzanaVerde.x && head.y === manzanaVerde.y) { score += 20; playEatGreenSound(); crearExplosion(manzanaVerde.x + grid/2, manzanaVerde.y + grid/2, '#39ff14'); manzanaVerde.activa = false; manzanaVerde.timerSpawn = TIEMPO_RESPAWN_VERDE; snake.maxCells++; }
             if (manzanaAmarilla.activa && head.x === manzanaAmarilla.x && head.y === manzanaAmarilla.y) { score += 50; playEatYellowSound(); crearExplosion(manzanaAmarilla.x + grid/2, manzanaAmarilla.y + grid/2, '#ffff00'); manzanaAmarilla.activa = false; manzanaAmarilla.timerSpawn = TIEMPO_RESPAWN_AMARILLA; snake.maxCells += 2; }
-            checkAutoSpeed(); document.getElementById('puntuacion').innerText = "PUNTOS: " + score;
+            
+            checkAutoSpeed(); 
+            document.getElementById('puntuacion').innerText = "PUNTOS: " + score;
         }
 
         function addTouchEvt(id, fn) { const el = document.getElementById(id); el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); fn(); }, {passive: false}); el.addEventListener('click', e => { e.preventDefault(); fn(); }); }
@@ -401,7 +484,10 @@
         addTouchEvt('btnSalirMenu', irAlMenu);
         addTouchEvt('btnContinuar', () => { ocultarTodo(); encenderJuego(); isPaused = false; });
         addTouchEvt('btnGuardarPausa', () => { guardarEstado(); irAlMenu(); });
-        addTouchEvt('btnVelocidad', () => { initAudio(); indiceVelocidad = (indiceVelocidad + 1) % velocidades.length; frameDelay = velocidades[indiceVelocidad].retraso; updateSpeedUI(); });
+        
+        // Deshabilitamos el cambio manual de velocidad ya que ahora es AUTOMÁTICO por score
+        addTouchEvt('btnVelocidad', () => { initAudio(); });
+        
         addTouchEvt('btnSonido', () => { initAudio(); soundEnabled=!soundEnabled; document.getElementById('btnSonido').innerText=soundEnabled?"♪ ON":"♪ OFF"; });
 
         function accionPausa() { initAudio(); isPaused = !isPaused; if (isPaused) { apagarJuego(); mostrar('pauseOverlay'); } else { ocultarTodo(); encenderJuego(); } }
