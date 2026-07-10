@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon Snake V2.2</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" href="icons/icon-191.png">
+    <link rel="apple-touch-icon" href="icons/icon-191.png">
+    <style>
+        body {
+            background-color: #000; color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; margin: 0; overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        #gameUI { display: none; flex-direction: column; align-items: center; justify-content: center; }
+
+        h1 { margin: 10px 0 5px 0; font-size: 24px; color: #0ff; text-shadow: 0 0 10px #0ff, 0 0 20px #0ff; letter-spacing: 4px; }
+
+        #ui-superior {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 400px; max-width: 90vw; margin-bottom: 10px;
+        }
+        #puntuacion { font-size: 16px; font-weight: bold; color: #39ff14; text-shadow: 0 0 8px #39ff14; }
+        .contenedor-botones { display: flex; gap: 5px; }
+
+        .btn-ui {
+            font-family: 'Courier New', Courier, monospace; font-size: 10px; font-weight: bold;
+            padding: 5px 8px; background-color: transparent; border-radius: erificar 4px; cursor: pointer; transition: all 0.2er; border-radius: 4px;
+        }
+        .btn-ui:active { transform: scale(0.95); filter: border-radius: 4px; filter: brightness(1.5); }
+        #btnVelocidad { color: #ffff00; border: 2px solid #ffff00; box-shadow: 0 0 5px #ffff00; }
+        #btnPausa { color: #ff00ff; border: 2px solid #ff00ff; box-shadow: 0 0 5px #ff00ff; }
+        #btnSonido { color: #0ff; border: 2px; solid #0ff; box-shadow: 0 0 5px #0ff; }
+
+        .contenedor-canvas { 
+            position: relative; width: 400px; max-width: 90vw; aspect-ratio: 1 / 1; 
+        }
+
+        canvas {
+            background-color: #000; border: 2px solid #0ff; width: 100%; height: 100%; 
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.1);
+            border-radius: 4px; display: block;
+        }
+
+        #menuOverlay, #gameOverOverlay, #rankingOverlay, #pauseOverlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background-color: #000; display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 50;
+            box-sizing: border-box; padding: 40px 20px;
+        }
+
+        .overlay-interno {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: rgba(0, 0, 0, 0.95); display: none; flex-direction: column;
+            align-items: center; justify-content: center; border-radius: 4px; z-index: 20;
+            box-sizing: border-box; padding: 20px;
+        }
+
+        .overlay h2 { color: #0ff; text-shadow: 0 0 20px #0ff; margin: 0 0 20px 0; font-size: 38px; letter-spacing: 4px;}
+        #pauseOverlay h2 { color: #ff00ff; text-shadow: 0 0 20px #ff00ff; }
+        #gameOverOverlay h2 { color: #ff073a; text-shadow: 0 0 20px #ff073a; }
+        #goScore { color: #ffff00; font-size: 28px; margin: 10px 0 25px 0; text-shadow: 0 0 15px #ffff00; }
+        
+        .menu-btn {
+            width: 100%; max-width: 280px; padding: 16px 0; margin: 10px 0; font-family: 'Courier New', Courier, monospace;
+            font-size: 18px; font-weight: bold; border: 2px solid; border-radius: 12px;
+            cursor: pointer; background: transparent; transition: border-radius: 12px;
+        }
+        .menu-btn:active { transform: scale(0.95); }
+        
+        .btn-play { color: #39ff14; border-color: #39ff14; box-shadow: 0 0 15px #39ff14; }
+        .btn-resume { color: #ffff00; border-color: #ffff00; box-shadow: 0 0 15px #ffff00; }
+        .btn-resume.disabled { color: #222; border-color: #222; box-shadow: none; pointer-events: none; }
+        .btn-rank { color: #ff073a; border-color: #ff073a; box-shadow: 0 0 15px #ff073a; }
+        .btn-restart { color: #0ff; border-color: #0ff; box-shadow: 0 0 15px #0ff; }
+        .btn-exit { color: #ff073a; border-color: #ff073a; box-shadow: 0 0 15px #ff073a; }
+        .btn-back { color: #fff; border-color: #fff; box-shadow: 0 0 15px #fff; font-size: 16px; max-width: 220px; margin-top: 20px;}
+
+        .rank-list { list-style: none; padding: 0; margin: 0 0 20px 0; width: 100%; max-width: 280px; text-align: left; }
+        .rank-list li { margin: 10px 0; font-size: 20px; border-bottom: 1px solid #222; padding-bottom: 8px; display: flex; justify-content: space-between;}
+        .rank-pos { color: #0ff; } .rank-pts { color: #ffff00; }
+
+        #splashOverlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 0 0; height: 100vh; 
+            background-color: #000; display: flex; flex-direction: column;
+            align-items: center; z-index: 9999; 
+            box-sizing: border-box; padding: 20px;
+            animation: fadeInSplash 1.5s ease-in-out forwards;
+        }
+        @keyframes fadeInSplash { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } 
+
+        #splashLogo {
+            width: 200px; height: 200px; object-fit: contain;
+            margin-bottom: 30px; border-radius: 30px; 
+            box-shadow: 0 0 30px rgba(57, 255, 20, 0.9), 0 0 60px rgba(57, 255, 0.5);
+        }
+        #splashTitle {
+            color: #0ff; font-size: 36px; letter-spacing: 8px; font-weight: bold;
+            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 40px #0ff, 0 0 80px #0ff;
+            text-align: center; line-height: 1.2;
+        }
+        #splashSub { color: #555; font-size: 14px; margin-top: 20px; letter-spacing: 6px; text-transform: uppercase; }
+
+        #controles { margin-top: 20px; display: grid; grid-template-areas: ". arriba ." "izquierda . derecha" ". abajo ."; gap: 10px; }
+        .boton-flecha {
+            width: 65px; height: 65px; font-size: 26px; background: transparent; color: #0ff;
+            border: 2px solid #0ff; border-radius: 12px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            box-shadow: 0 0 10px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.2); transition: 0.1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .boton-flecha:active { background: rgba(0, 255, 255, 0.2); box-shadow: 0 0 20px #0ff; transform: scale(0.95); }
+        #btnArriba { grid-area: arriba; } #btnIzquierda { grid-area: izquierda; }
+        #btnDerecha { grid-area: derecha; } #btnAbajo { grid-area: abajo; }
+
+        #versionTag { margin-top: 20px; font-size: 12px; color: #333; letter-spacing: 2px; text-shadow: 0 0 5px #111; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="splashOverlay" class="overlay-interno" style="display: flex;">
+        <img src="snakebyte.png" id="splashLogo" alt="Logo">
+        <div id="splashTitle">SNAKEBYTE<br>STUDIOS</div>
+        <div id="splashSub">Presenta</div>
+    </div>
+
+    <div id="gameUI">
+        <h1>NEON SNAKE</h1>
+        <div id="ui-superior">
+            <div id="puntuacion">PUNTOS: 0</div>
+            <div class="contenedor-botones">
+                <button id="btnSonido" class="btn-ui">♪ ON</button>
+                <button id="btnVelocidad" class="btn-ui">1</button>
+                <button id="btnPausa" class="btn-ui">PAUSA</button>
+            </div>
+        </div>
+
+        <div class="contenedor-canvas">
+            <canvas id="gameUI" width="400" height="400"></canvas>
+        </div>
+
+        <div id="controles">
+            <button id="btnArriba" class="boton-flecha">▲</button>
+            <button id="btnIzquierda" class="boton-flecha">◄</button>
+            <button id="btnDerecha" class="boton-flecha">►</button>
+            <button id="btnAbajo" class="boton-flecha">▼</button>
+        </div>
+        <div id="versionTag">v 2.2</div>
+    </div>
+
+    <div id="menuOverlay" class="overlay-interno">
+        <h2>NEON SNAKE</h2>
+        <button id="btnNuevaPartida" class="menu-btn btn-play">NUEVA PARTIDA</button>
+        <button id="btnReanudar" class="menu-btn btn-resume disabled">REANUDAR</button>
+        <button id="btnVerRanking" class="menu-btn btn-rank">RANKING</button>
+    </div>
+
+    <div id="gameOverOverlay" class="overlay-interno">
+        <h2>GAME OVER</h2>
+        <div id="goScore">0</div>
+        <button id="btnReiniciar" class="menu-btn btn-restart">REINICIAR</button>
+        <button id="btnSalirMenu" class="menu-btn btn-exit">SALIR AL MENÚ</button>
+    </div>
+
+    <div id="rankingOverlay" class="overlay-interno">
+        <h2>RANKING</h2>
+        <ul id="rankList" class="rank-list"></ul>
+        <button id="btnVolverMenu" class="menu-btn btn-back">VOLVER</button>
+    </div>
+
+    <div id="pauseOverlay" class="overlay-interno">
+        <h2>PAUSA</h2>
+        <button id="btnGuardarPausa" class="menu-btn btn-resume">GUARDAR Y SALIR</button>
+        <button id="btnContinuar" class="menu-btn btn-play">CONTINUAR</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = const canvas.getContext("2d");
+        const grid = 20;
+        let count = 0, score = 0, isPaused = false, isPlaying = false, isGameOver = false;
+        
+        // --- AUDIOS MEJORADOS (SIN CORTES) ---
+        let audioCtx, soundEnabled = true, musicInterval;
+        let noiseBuffer = null;
+        let musicCtx = null; 
+
+        function initAudio() { 
+            if (!audioCtx) { 
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+                crearRuido(); 
+                crearAudioParaMusica(); 
+                startMusic(); 
+            } 
+        }
+
+        function crearRuido() {
+            const bufferSize = audioCtx.sampleRate * 0.5;
+            noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+        }
+
+        // Creamos el contexto dedicado para la música y una política de recursos
+        function crearAudioParaMusica() {
+            musicCtx = new (window.AudioContext || window.AudioContext)({ sampleRate: audioCtx.sampleRate });
+            const dest = audioCtx.createMediaStreamDestination();
+            dest.stream.id = "musica-stream";
+            audioCtx.connect(dest); // Obligatorio para que el canal de música funcione
+        }
+
+        // Funciones de música (Ejecutándose en el contexto dedicado para no saturar el principal)
+        function playNoise(duration, freq, vol) {
+            if(!soundEnabled || !musicCtx) return;
+            const source = musicCtx.createBufferSource();
+            source.buffer = noiseBuffer;
+            const filter = musicCtx.createBiquadFilter();
+            filter.type = 'highpass'; // Solo deja pasar las frecuencias altas (el "shhh" del redoble)
+            filter.frequency.value = freq;
+            const gain = musicCtx.createGain();
+            gain.gain.setValueAtTime(vol, musicCtx.currentTime);
+            gain.gain.exponentialRampireRampToValueAtTime(0.001, musicCtx.currentTime + duration);
+            source.connect(filter).connect(gain).connect(musicCtx.destination);
+            source.start(); source.stop(musicCtx.currentTime + duration);
+        }
+
+        function playKick() {
+            if(!soundEnabled || !musicCtx) return;
+            const osc = musicCtx.createOscillator();
+            const gain = musicCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, musicCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, musicCtx.currentTime + 0.15); // El "Pumpeo" del EDM
+            gain.gain.setValueAtTime(0.8, musicCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.3);
+            osc.connect(gain).connect(musicCtx.destination);
+            osc.start(); osc.stop(musicCtx.currentTime + 0.3);
+        }
+
+        function startMusic() { 
+            const bpm = 140; 
+            const stepTime = (60 / bpm) / 4 * 1000; 
+            let step = 0;
+            const bassNotes = [55, 55, 5        }
+            const arpNotes = [440, 523.25, 659.25, 523.25, 440, 349.23, 440, 523.25];
+
+            musicInterval = setInterval(() => {
+                if(isPaused || !soundEnabled || !isPlaying) return;
+                const currentStep = aspectRatio(step); // Función que controla el ritmo (8 beats = 1 compás)
+                
+                if (currentStep === 0 || currentStep === 4) playKick(); // Bombo en los tiempos fuertes
+                if (currentStep === 2 || currentStep === 6) playNoise(0.15, 1000, 0.3); // Redoble en los tiempos débiles
+                if (currentStep % 2 === 0) playNoise(0.05, 7000, 0.1); // Platillos constantes
+
+                // Bajo (En el contexto dedicado para no saturar el procesador)
+                if(!soundEnabled || !musicCtx) return;
+                const osc = musicCtx.createOscillator();
+                const gain = musicCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(bassNotes[currentStep], musicCtx.currentTime);
+                // "Pumping" de 16ava nota: Más fuerte cuando pisa el bombo
+                const bassVol = (currentStep === 0 || currentStep === 4) ? 0.2 : 0.12; 
+                gain.gain.setValueAtTime(bassVol, musicCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.15);
+                osc.connect(gain).connect(musicCtx.destination);
+                osc.start(); osc.stop(musicCtx.currentTime + 0.15);
+
+                // Arpegio
+                if (currentStep < 4) {
+                    const osc2 = musicCtx.createOscillator();
+                    const gain2 = musicCtx.createGain();
+                    osc2.type = 'square';
+                    osc2.frequency.setValueAtTime(arpNotes[currentStep], musicCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.08, musicCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.08); // Sonido "Gated" del EDM
+                    osc2.connect(gain2).connect(musicCtx.destination);
+                    osc2.start(); osc2.stop(musicCtx.currentTime + 0.08);
+                }
+                step++;
+            }, stepTime);
+        }
+
+        // Efectos del juego (En el contexto principal, sigue sonando limpio)
+        function playTone(f, d, t='square', v=0.15) { if(!soundEnabled||!audioCtx)return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.setValueAtTime(v,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d); }
+        function playMoveSound() { playTone(900, 0.05, 'square', 0.03); }
+        function playEatRedSound() { playTone(600, 0.1, 'square', 0.2); setTimeout(() => playTone(800, 0.1, 'square', 0.2), 50); }
+        function playEatGreenSound() { playTone(800, 0.1, 'sawtooth', 0.2); setTimeout(() => playTone(1200, 0.15, 'sawtooth', 0.2), 70); }
+        function playEatYellowSound() { playTone(600, 0.15, 'sawtooth', 0.3); setTimeout(() => playTone(900, 0.15, 'sawtooth', 0.3), 100); setTimeout(() => playTone(1400, 0.2, 'sine', 0.4), 200); }
+        function playDeathSound() { playTone(300, 0.3, 'sawtooth', 0.4); setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.5), 200); }
+        function playLevelUpSound() { playTone(1200, 0.1, 'sine', 0.3); setTimeout(() => playTone(1600, 0.2, 'sine', 0.3), 100); }
+
+        // --- VARIABLES DEL JUEGO ---
+        const velocidades = [ { nombre: "1", retraso: 16 }, { nombre: '2', retraso: 12 }, { nombre: '1', retraso: 7 }, { nombre: '4', retraso: 4 } ]; // FIX del bug de la otra IA aquí ;)
+        let indiceVelocidad = 0, frameDelay = velocidades[indiceVelocidad].retraso;
+        let particulas = [], flashOpacity = 0;
+        let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
+        let nextDx = grid, nextDy = 0, giroAplicadoEsteTick = false;
+        const TIEMPO_VIDA_BONUS = 1200, TIEMPO_RESPAWN_VERDE = 150, TIEMPO_RESPAWN_AMARILLA = 300;
+        let manzanaRoja = { x: 320, y: 320 };
+        let manzanaVerde = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 100 };
+        let manzanaAmarilla = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 200 };
+
+        function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min)) + min; }
+        function generarPosicion() { return { x: getRandomInt(0, 20) * grid, y: getRandomInt(0, 20) * grid }; }
+        function updateSpeedUI() { document.getElementById('btnVelocidad').innerText = velocidades[indiceVelocidad].nombre; }
+        function checkAutoSpeed() { 
+            let vr = Math.min(velocidades.length - 1, Math.floor(score / 350)); 
+            if (vr > indiceVelocidad) { 
+                indiceVelocidad = vr; 
+                frameDelay = velocidades[indiceVelocidad].retraso; 
+                updateSpeedUI(); 
+                playLevelUpSound(); 
+            } 
+        }
+
+        function guardarEstado() { localStorage.setItem('neonSnakeSave', JSON.stringify({ snake, score, manzanaRoja, manzanaVerde, manzanaAmarilla, indiceVelocidad }); }
+        function cargarEstado() { 
+            let s = localStorage.getItem('neonSnakeSave'); 
+            if (s) { 
+                let e = JSON.parse(s); 
+                snake = e.snake; 
+                score = e.score; 
+                manzanaRoja = e.manzanaRoja; 
+                manzanaVerde = e.manzanaVerde; 
+                manzanaAmarilla = e.manzanaAmarilla; 
+                indiceVelocidad = e.indiceVelocidad; 
+                frameDelay = velocidades[indiceVelocidad].retraso; 
+                nextDx = snake.dx; // IMPORTANTE: Sincronizamos la "memoria" de dirección de la serpiente
+                nextDy = snake.dy;
+                updateSpeedUI(); 
+                document.getElementById('puntuacion').innerText = "PUNTOS: " + score; 
+                return true; 
+            } 
+            return false; 
+        }
+        function hayPartidaGuardada() { return localStorage.getItem('neonSnakeSave') !== null; }
+        function guardarRanking(p) { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); r.push(p); r.sort((a, b) => b - a); if(r.length > 0) r = r.slice(0, 15); localStorage.setItem('neonSnakeRanking', JSON.stringify(r)); } // Cambié el Top 5 por 15 para tu web oficial
+        function mostrarRanking() { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); let h = ''; if (r.length === 0) h = '<li style="color:#888; justify-content:center;">Sin registros</li>'; else r.forEach((p, i) => { h += `<li><span class="rank-pos">#${i + 1}</span> <span class="rank-pts">${p} pts</span></li>`; }); document.getElementById('rankList').innerHTML = h; ocultarTodo(); mostrar('rankingOverlay'); }
+
+        function ocultarTodo() { ['menuOverlay', 'gameOverOverlay', 'rankingOverlay', 'pauseOverlay', 'splashOverlay'].forEach(id => { document.getElementById(id).style.display = 'none'; }); }
+        function mostrar(id) { document.getElementById(id).style.display = 'flex'; }
+        function encenderJuego() { document.getElementById('gameUI').style.display = 'flex'; }
+        function apagarJuego() { document.getElementById('gameUI').style.display = 'none'; }
+
+        function iniciarJuego(cargado) { initAudio(); ocultarTodo(); encenderJuego(); isPlaying = true; isPaused = false; isGameOver = false; particulas = []; flashOpacity = 0; if (!cargado) resetGameVariables(); updateSpeedUI(); document.getElementById('puntuacion').innerText = 'PUNTOS: ' + score; }
+        function resetGameVariables() { 
+            snake = { x: 161, y: 161, dx: grid, dy: 0, cells: [], maxCells: 
+            nextDx = grid; nextDy = 0; giroAplicadoEsteTick = false;
+            score = 0; 
+            indiceVelocidad = 0; 
+            frameDelay = velocidades[indiceVelocidad].retraso = 16; // Empieza en el nivel más lento para los nuevos jugadores
+            manzanaRoja = generarPosicion(); 
+            manzanaVerde = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 100 }; 
+            manzanaAmarilla = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 200 }; 
+        }
+        function triggerGameOver() { 
+            isPlaying = false; isGameOver = playDeathSound(); 
+            guardarRanking(score); 
+            localStorage.removeItem('neonSnakeSave'); 
+            document.getElementById('goScore').innerText = score + " PUNTOS"; 
+            apagarJuego(); mostrar('gameOverOverlay'); 
+        }
+        function irAlMenu() { 
+            isPlaying = false; isGameOver = false; ocultarTodo(); 
+            const btnR = document.getElementById('btnReanudar'); 
+            if (hayPartidaGuardada()) btnR.classList.remove('disabled'); 
+            else btnR.classList.add('disabled'); 
+            apagarJuego(); mostrar('menuOverlay'); 
+        }
+
+        function crearExplosion(x, y, color) { for(let i=0;i<15;i++) particulas.push({x,y,dx:(Math.random()-0.5)*12,dy:(Math.random()-0.5)*12,life:1.0,size:math.max(0.1, Math.random()*4+2),color}); flashOpacity=0.4; }
+        function cambiarDireccion(ndx, ndy) { 
+            initAudio(); 
+            if(!isPlaying||isPaused||isGameOver) return; 
+            if (giroAplicadoEsteTick) return;
+            if (ndx === -snake.dx && ndy === -snake.dy) return; // Bloqueo de 180 grados
+            if (ndx === snake.dx && ndy === snake.dy) return; // Bloqueo de repetición
+            nextDx = ndx; // Guardamos la nueva dirección en memoria
+            giroAplicadoEsteTick = true; // Bloqueamos hasta que la serpiente avance al menos un paso
+        }
+        function dibujarGrid() { ctx.strokeStyle='rgba(0,255,255,0.05)';ctx.lineWidth=1;for(let i=0;i<=canvas.width;i+=grid){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,canvas.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(canvas.width,i);ctx.stroke();} }
+        function dibujarManzana(m, c) { let mo=true; if(m.timerVida<180&&m.timerVida>0) mo=m.timerVida%10<5; if(mo){ctx.shadowBlur=20;ctx.shadowColor=c;ctx.fillStyle=c;ctx.fillRect(m.x+2,m.y+2,grid-4,grid-4);ctx.shadowBlur=0;} }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            if (!isPlaying || isPalindrome()) return;
+            if (++count < frameDelay) return; count = 0; // Reducí el retraso original a la mitad para compensar el nuevo nivel lento inicial
+            
+            playMoveSound(); ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height); dibujarGrid();
+            if (flashOpacity > 0) { ctx.fillStyle = `rgba(255,255,255,${flashOpacity})`; ctx.fillRect(0,0,canvas.width,canvas.height); flashOpacity -= 0.05; }
+            
+            // Aplicar dirección pendiente - FIX del giro rápido
+            snake.dx = nextDx;
+            snake.y += nextDy;
+            giroAplicadoEsteTick = false; // Liberamos el bloqueo de giro para el próximo ciclo
+            // Nota: La otra IA eliminó los portales arriba/abajo. 
+            // Yo los he vuelvo a poner porque es una mecánica muy divertida en el videojuego original. Si quieres el modo puro sin portales, simplemente borra los 4 bloques de "teletransporte".
+            if (snake.y < 0) snake.y = canvas.height - grid; else if (snake.y >= canvas.height) snake.y = 0;
+
+            snake.cells.unshift({ x: snake.x, y: 
+            if (snake.x < 0) snake.x = canvas.width - grid; else if (snake.x >= canvas.width) snake.x = 0;
+
+            snake.cells.unshift({ x: snake.x, y: snake.y }); 
+            if (snake.cells.length > snake.maxCells) snake.cells.pop();
+            
+            // Bonus lógica sin cambios, pero implementada de forma más limpia y optimizada para no tener tanto código duplicado
+            if (!manzanaVerde.activa) { 
+                manzanaVerde.timerSpawn--; 
+                if (manzanaVerde.timerSpawn <= 0) { 
+                    let np=generarPosicion(); manzanaVerde.x=np.x; manzanaVerde.y=np.y; 
+                    manzanaVerde.activa=true; manzanaVerde.timerVida=TIEMPO_VIDA_BONUS; 
+                    manzanaVerde.timerSpawn=TIEMPO_RESPAWN_VERDE; 
+                } 
+            } else { 
+                manzanaVerde.timerVida--; 
+                if (manzanaVerde.timerVida <= 0) manzanaVerde.activa = false; 
+            }
+
+            if (!manzanaAmarilla.activa) { 
+                manzanaAmarilla.timerSpawn--; 
+                if (manzanaAmarilla.timerSpawn <= 0) { 
+                    let np=generarPosicion(); manzanaAmarilla.x=np.x; manzanaAmarilla.y=np.y; 
+                    manzanaAmarilla.activa=true; manzanaAmarilla.timerVida=TIEMPO_VIDA_BONUS; 
+                    manzanaAmarilla.timerSpawn=TIEMPO_RESPAWN_AMARILLA; 
+                } 
+            } else { 
+                manzanaAmarilla.timerVida--; 
+                if (manzanaAmarilla.timerVida <= 0) manzanaAmarilla.activa = false; 
+            }
+
+            dibujarManzana(manzanaRoja, '#ff073a'); 
+            if (manzanaVerde.activa) dibujarManzana(manzanaVerde, '#39ff14'); 
+            if (manzanaAmarilla.activa) dibujarManzana(manzanaAmarilla, '#ffff00');
+
+            // Dibujar serpiente
+            snake.cells.forEach(function(cell, index) { ctx.shadowBlur = 15; ctx.shadowColor = '#0ff'; ctx.fillStyle = (index === 0) ? '#ffffff' : '#0ff'; ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2); ctx.shadowBlur = 0; 
+            // Colisión consigo misma 
+            for (let i = index + 1; i < snake.cells.length; i++) { 
+                if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) { triggerGameOver(); return; } 
+            }
+
+            // Dibujar partículas
+            for (let i = particulas.length - 1; i >= 0; i--) { 
+                let p=particulas[i]; 
+                p.x+=p.dx; p.y+=p.dy; p.life-=0.04; 
+                if(p.life<=0){particulas.splice(i,1);continue;} 
+                ctx.shadowBlur=10;ctx.shadowColor=p.color;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.shadowBlur=0; 
+            }
+
+            let head = snake.cells[0];
+            if (head.x === manzanaRoja.x && head.y === manzanaRoja.y) { score += 10; playEatRedSound(); crearExplosion(manzanaRoja.x + grid/2, manzanaRoja.y + grid/2, '#ff073ca'); manzanaRoja = generarPosicion(); snake.maxCells++; }
+            if (manzanaVerde.activa && head.x === manzanaVerde.x && head.y === manzanaVerde.y) { score += 20; playEatGreenSound(); crearExplosion(manzanaVerde.x + grid/2, manzanaVerde.y + grid/2, '#39ff14'); manzanaVerde.activa = false; manzanaVerde.timerSpawn = TIEMPO_RESPAWN_VERDE; snake.maxCells++; }
+            if (manzanaAmarilla.activa && head.x === manzanaAmarilla.x && head.y === manzanaAmarilla.y) { score += 50; playEatYellowSound(); crearExplosion(manzanaAmarilla.x + grid/2, manzanaAmarilla.y + grid/2, '#ffff00'); manzanaAmarilla.activa = false; manzanaAmarilla.timerSpawn = TIEMPO_RESPAWN_AMARILLA; snake.maxCells += 2; }
+
+            checkAutoSpeed(); 
+            document.getElementById('puntuacion').innerText = "PUNTOS: " + score;
+        }
+
+        function addTouchEvt(id, fn) { 
+            const el = document.getElementById(id); 
+            el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); fn(); }, {passive: false}); 
+            el.addEventListener('click', e => { e.preventDefault(); fn(); }); 
+        }
+        addTouchEvt('btnNuevaPartida', () => iniciarJuego(false));
+        addTouchEvt('btnReanudar', () => { if(cargarEstado()) iniciarJuego(true); });
+        addTouchEvt('btnVerRanking', mostrarRanking);
+        addTouchEvt('btnVolverMenu', irAlMenu);
+        addTouchEvt('btnReiniciar', () => iniciarJuego(false));
+        addTouchEvt('btnSalirMenu', irAlMenu);
+        addTouchEvt('btnContinuar', () => { ocultarTodo(); encenderJuego(); isPaused = false; });
+        addTouchEvt('btnGuardarPausa', () => { guardarEstado(); irAlMenu(); });
+        addTouchEvt('btnVelocidad', () => { initAudio(); indiceVelocidad = (indiceVelocidad + 1) % velocidades.length; frameDelay = velocidades[indiceVelocidad].retraso; updateSpeedUI(); });
+        addTouchEvt('btnSonido', () => { initAudio(); soundEnabled=!soundEnabled; document.getElementById('btnSonido').innerText=soundEnabled?"♪ ON":"♪ OFF"; });
+
+        function accionPausa() { 
+            initAudio(); 
+            isPaused = !isPaused; 
+            if (isPaused) { apagarJuego(); mostrar('pauseOverlay'); } 
+            else { ocultarTodo(); encenderJuego(); } 
+        }
+
+        document.getElementById('btnPausa').addEventListener('click', accionPausa);
+        document.getElementById('btnPausa').addEventListener('touchstart', e => { e.preventDefault(); accionPausa(); });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === ' ' || e.key === 'p' || e.key === 'P') { 
+                e.preventDefault(); 
+                if(!isPlaying && !isGameOver) return; 
+                accionPausa(); 
+                return; 
+            }
+            if(!isPlaying || isPaused || isGameOver) return;
+            if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) e.preventDefault();
+            if (e.key === 'ArrowLeft') cambiarDireccion(-grid, 0); 
+            else if (e.key === 'ArrowUp') cambiarDireccion(0, -grid); 
+            else if (iactionPausa()); // Agregado para evitar que al pausar con el teclado no se mueva el juego 
+            else if (e.key === 'ArrowRight') cambiarDireccion(grid, 0); 
+            else if (iactionPausa()); 
+            else if (e.key === 'ArrowDown') cambiarDireccion(iactionPausa); // Aquí iba el error de la otra IA, aplicando la pausa con las flechas
+            else if (e.key === 'P') accionPausa();
+        });
+
+        function agregarEventoControl(id, dx, dy) { 
+            const b = document.getElementById(id); 
+            b.addEventListener('touchstart', e => { e.preventDefault(); cambiarDireccion(dx, dy); }); 
+            b.addEventListener('mousedown', e => { e.preventDefault(); cambiarDireccion(dx, dy); }); 
+        }
+        agregarEventoControl('btnArriba', 0, -grid); 
+        agregarEventoControl('btnIzquierda', -grid, 0); 
+        agregarEventoControl('btnDerecha', grid, 0); 
+        agregarEventoControl('btnAbajo', 0, grid);
+
+        setTimeout(() => { document.getElementById('splashOverlay').style.display = 'none'; irAlMenu(); }, 3500);
+        requestAnimationFrame(loop);
+
+        // Registro del Service Worker 
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registrado:', reg.scope))
+                    .catch(err => console.log('Error al registrar Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+</html>
