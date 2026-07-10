@@ -191,19 +191,14 @@
 
         function initAudio() { 
             if (!audioCtx) { 
-                // Contexto principal para efectos de sonido (SFX)
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-                
-                // CONTEXTO SECUNDARIO EXCLUSIVO PARA LA MÚSICA (Evita micro-cortes en Android)
                 musicCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
                 crearRuido(); 
                 startMusic(); 
             } 
         }
 
         function crearRuido() {
-            // El búfer se crea en el contexto de música ya que se usa para los Hi-Hats y Snares ritmicos
             const bufferSize = musicCtx.sampleRate * 0.5;
             noiseBuffer = musicCtx.createBuffer(1, bufferSize, musicCtx.sampleRate);
             const output = noiseBuffer.getChannelData(0);
@@ -212,7 +207,6 @@
             }
         }
 
-        // Modificados para reproducirse limpiamente en el canal aislado (musicCtx)
         function playNoise(duration, freq, vol) {
             if(!soundEnabled || !musicCtx) return;
             const source = musicCtx.createBufferSource();
@@ -278,7 +272,6 @@
             }, stepTime);
         }
 
-        // Los efectos de interacción siguen corriendo en audioCtx para no mezclarse con los ritmos estables
         function playTone(f, d, t='square', v=0.15) { if(!soundEnabled||!audioCtx)return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.setValueAtTime(v,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d); }
         function playMoveSound() { playTone(900, 0.05, 'square', 0.03); }
         function playEatRedSound() { playTone(600, 0.1, 'square', 0.2); setTimeout(() => playTone(800, 0.1, 'square', 0.2), 50); }
@@ -287,14 +280,15 @@
         function playDeathSound() { playTone(300, 0.3, 'sawtooth', 0.4); setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.5), 200); }
         function playLevelUpSound() { playTone(1200, 0.1, 'sine', 0.3); setTimeout(() => playTone(1600, 0.2, 'sine', 0.3), 100); }
 
-        // --- LÓGICA Y CONFIGURACIÓN GENERAL DEL JUEGO ---
+        // --- CONFIGURACIÓN GENERAL DEL JUEGO ---
         const velocidades = [ { nombre: "1", retraso: 16 }, { nombre: "2", retraso: 12 }, { nombre: "3", retraso: 7 }, { nombre: "4", retraso: 4 } ];
         let indiceVelocidad = 0, frameDelay = velocidades[indiceVelocidad].retraso;
         let particulas = [], flashOpacity = 0;
+        
+        // VARIABLES DE MOVIMIENTO CON BUFFER OPTIMIZADO
         let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
-        let nextDx = grid;
-        let nextDy = 0;
-        let giroAplicadoEsteTick = false;
+        let inputQueue = []; 
+
         const TIEMPO_VIDA_BONUS = 1200, TIEMPO_RESPAWN_VERDE = 150, TIEMPO_RESPAWN_AMARILLA = 300;
         let manzanaRoja = { x: 320, y: 320 };
         let manzanaVerde = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 100 };
@@ -317,8 +311,7 @@
                 manzanaAmarilla = e.manzanaAmarilla; 
                 indiceVelocidad = e.indiceVelocidad; 
                 frameDelay = velocidades[indiceVelocidad].retraso; 
-                nextDx = snake.dx;
-                nextDy = snake.dy;
+                inputQueue = []; 
                 updateSpeedUI(); 
                 document.getElementById('puntuacion').innerText = "PUNTOS: " + score; 
                 return true; 
@@ -336,11 +329,10 @@
         function apagarJuego() { document.getElementById('gameUI').style.display = 'none'; }
 
         function iniciarJuego(cargado) { initAudio(); ocultarTodo(); encenderJuego(); isPlaying = true; isPaused = false; isGameOver = false; particulas = []; flashOpacity = 0; if (!cargado) resetGameVariables(); updateSpeedUI(); document.getElementById('puntuacion').innerText = "PUNTOS: " + score; }
+        
         function resetGameVariables() { 
             snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 }; 
-            nextDx = grid;
-            nextDy = 0;
-            giroAplicadoEsteTick = false;
+            inputQueue = []; 
             score = 0; 
             indiceVelocidad = 0; 
             frameDelay = velocidades[indiceVelocidad].retraso; 
@@ -348,20 +340,26 @@
             manzanaVerde = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 100 }; 
             manzanaAmarilla = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 200 }; 
         }
+        
         function triggerGameOver() { isPlaying = false; isGameOver = true; playDeathSound(); guardarRanking(score); localStorage.removeItem('neonSnakeSave'); document.getElementById('goScore').innerText = score + " PUNTOS"; apagarJuego(); mostrar('gameOverOverlay'); }
         function irAlMenu() { isPlaying = false; isGameOver = false; ocultarTodo(); const btnR = document.getElementById('btnReanudar'); if (hayPartidaGuardada()) btnR.classList.remove('disabled'); else btnR.classList.add('disabled'); apagarJuego(); mostrar('menuOverlay'); }
 
         function crearExplosion(x, y, color) { for(let i=0;i<15;i++) particulas.push({x,y,dx:(Math.random()-0.5)*12,dy:(Math.random()-0.5)*12,life:1.0,size:Math.random()*4+2,color}); flashOpacity=0.4; }
+        
         function cambiarDireccion(ndx, ndy) { 
             initAudio(); 
-            if(!isPlaying||isPaused||isGameOver) return; 
-            if (giroAplicadoEsteTick) return;
-            if (ndx === -snake.dx && ndy === -snake.dy) return;
-            if (ndx === snake.dx && ndy === snake.dy) return;
-            nextDx = ndx;
-            nextDy = ndy;
-            giroAplicadoEsteTick = true;
+            if(!isPlaying || isPaused || isGameOver) return; 
+            
+            let ultimaD = inputQueue.length > 0 ? inputQueue[inputQueue.length - 1] : { dx: snake.dx, dy: snake.dy };
+
+            if (ndx === -ultimaD.dx && ndy === -ultimaD.dy) return;
+            if (ndx === ultimaD.dx && ndy === ultimaD.dy) return; 
+
+            if (inputQueue.length < 2) {
+                inputQueue.push({ dx: ndx, dy: ndy });
+            }
         }
+        
         function dibujarGrid() { ctx.strokeStyle='rgba(0,255,255,0.05)';ctx.lineWidth=1;for(let i=0;i<=canvas.width;i+=grid){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,canvas.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(canvas.width,i);ctx.stroke();} }
         function dibujarManzana(m, c) { let mo=true; if(m.timerVida<180&&m.timerVida>0) mo=m.timerVida%10<5; if(mo){ctx.shadowBlur=20;ctx.shadowColor=c;ctx.fillStyle=c;ctx.fillRect(m.x+2,m.y+2,grid-4,grid-4);ctx.shadowBlur=0;} }
 
@@ -370,9 +368,11 @@
             if (!isPlaying || isPaused || isGameOver) return;
             if (++count < frameDelay) return; count = 0;
 
-            snake.dx = nextDx;
-            snake.dy = nextDy;
-            giroAplicadoEsteTick = false;
+            if (inputQueue.length > 0) {
+                const siguienteGiro = inputQueue.shift();
+                snake.dx = siguienteGiro.dx;
+                snake.dy = siguienteGiro.dy;
+            }
 
             playMoveSound(); ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height); dibujarGrid();
             if (flashOpacity > 0) { ctx.fillStyle = `rgba(255,255,255,${flashOpacity})`; ctx.fillRect(0,0,canvas.width,canvas.height); flashOpacity -= 0.05; }
@@ -428,7 +428,6 @@
         agregarEventoControl('btnDerecha', grid, 0); 
         agregarEventoControl('btnAbajo', 0, grid);
 
-        // --- MANEJO DEL SPLASH SCREEN ---
         setTimeout(() => { 
             document.getElementById('splashOverlay').style.display = 'none'; 
             irAlMenu(); 
