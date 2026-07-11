@@ -3,23 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="display" content="standalone">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Neon Snake">
     
     <title>Neon Snake V2.4 - Ultimate Edition</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="icon" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
     <style>
-        body {
+        /* 2. ELIMINAR CUALQUIER POSIBILIDAD DE SCROLL O REBOTE */
+        html, body {
+            position: fixed; /* Evita que el navegador se desplace y muestre la barra */
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
             background-color: #000; color: #fff;
             font-family: 'Courier New', Courier, monospace;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; margin: 0; overflow: hidden;
+            margin: 0; 
             user-select: none; -webkit-user-select: none;
-            transition: color 0.5s ease;
+            touch-action: none; /* Bloquea gestos nativos del navegador como "deslizar para actualizar" */
         }
 
         #gameUI { display: none; flex-direction: column; align-items: center; justify-content: center; }
@@ -91,7 +101,6 @@
         .rank-list li { margin: 10px 0; font-size: 20px; border-bottom: 1px solid #222; padding-bottom: 8px; display: flex; justify-content: space-between;}
         .rank-pos { color: #0ff; } .rank-pts { color: #ffff00; }
 
-        /* --- SPLASH DE CARGA NATIVO Y CORREGIDO --- */
         #splashOverlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
             background-color: #000; display: flex; flex-direction: column;
@@ -113,7 +122,6 @@
         }
         #splashSub { color: #555; font-size: 14px; margin-top: 20px; letter-spacing: 6px; text-transform: uppercase; }
 
-        /* --- CONTROLADORES HÍBRIDOS MULTITÁCTILES AGRANDADOS --- */
         #controles { 
             margin-top: 15px; 
             display: grid; 
@@ -198,12 +206,24 @@
     </div>
 
     <script>
+        // 3. FORCE HIDE BAR (Script auto-ejecutable instantáneo)
+        window.addEventListener("load", function() {
+            setTimeout(function() {
+                window.scrollTo(0, 1);
+            }, 0);
+        });
+
+        // Prevenir gestos de arrastre que invocan barras de navegador
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) return; // Permitir zoom nativo si fuera el caso
+            e.preventDefault(); 
+        }, { passive: false });
+
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const grid = 20;
         let count = 0, score = 0, isPaused = false, isPlaying = false, isGameOver = false;
         
-        // --- SISTEMA DE AUDIO DINÁMICO EVOLUTIVO (DEDICADO) ---
         let audioCtx, musicCtx, soundEnabled = true, musicInterval;
         let noiseBuffer = null;
 
@@ -265,7 +285,7 @@
 
             musicInterval = setInterval(() => {
                 if(isPaused || !soundEnabled || !isPlaying || !musicCtx) return;
-                const currentStep = step % 8; // Optimizado a 8 pasos reales por compás GD (Ahorro de recursos)
+                const currentStep = step % 8;
                 
                 if (nivelActual >= 3) {
                     if (currentStep === 0 || currentStep === 4) playKick();
@@ -514,7 +534,6 @@
         document.getElementById('btnPausa').addEventListener('click', accionPausa);
         document.getElementById('btnPausa').addEventListener('touchstart', e => { e.preventDefault(); accionPausa(); });
 
-        // Fix de Teclado nativo: Letra 'P' o Espacio pausan. Flechas direccionales estándar.
         document.addEventListener('keydown', function(e) {
             if (e.key === ' ' || e.key === 'p' || e.key === 'P') { e.preventDefault(); if(!isPlaying && !isGameOver) return; accionPausa(); return; }
             if(!isPlaying || isPaused || isGameOver) return;
@@ -535,7 +554,6 @@
         agregarEventoControl('btnDerecha', grid, 0); 
         agregarEventoControl('btnAbajo', 0, grid);
 
-        // Desactivación del Splash tras carga fluida
         setTimeout(() => { document.getElementById('splashOverlay').style.display = 'none'; irAlMenu(); }, 3500);
 
         requestAnimationFrame(loop);
