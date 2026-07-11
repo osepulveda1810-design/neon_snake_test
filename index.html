@@ -108,19 +108,32 @@
         }
         #splashSub { color: #555; font-size: 14px; margin-top: 20px; letter-spacing: 6px; text-transform: uppercase; }
 
-        #controles { margin-top: 20px; display: grid; grid-template-areas: ". arriba ." "izquierda . derecha" ". abajo ."; gap: 10px; }
+        /* --- CONTROLADORES AGRANDADOS Y OPTIMIZADOS PARA HITBOX --- */
+        #controles { 
+            margin-top: 15px; 
+            display: grid; 
+            grid-template-areas: ". arriba ." "izquierda . derecha" ". abajo ."; 
+            gap: 12px; /* Un poco más de aire para evitar tocar dos a la vez */
+        }
         .boton-flecha {
-            width: 65px; height: 65px; font-size: 26px; background: transparent; color: #0ff;
-            border: 2px solid #0ff; border-radius: 12px; cursor: pointer; display: flex;
+            width: 76px; /* Incrementado de 65px a 76px */
+            height: 76px; /* Incrementado de 65px a 76px */
+            font-size: 30px; /* Flechas más legibles */
+            background: transparent; color: #0ff;
+            border: 2px solid #0ff; border-radius: 14px; cursor: pointer; display: flex;
             align-items: center; justify-content: center;
             box-shadow: 0 0 10px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.2); transition: all 0.5s ease;
             -webkit-tap-highlight-color: transparent;
+            
+            /* Truco UX: Caja virtual exterior invisible de 6px que amplía el rango táctil del dedo */
+            box-sizing: border-box;
+            outline: 6px solid transparent; 
         }
         .boton-flecha:active { background: rgba(0, 255, 255, 0.2); box-shadow: 0 0 20px #0ff; transform: scale(0.95); }
         #btnArriba { grid-area: arriba; } #btnIzquierda { grid-area: izquierda; }
         #btnDerecha { grid-area: derecha; } #btnAbajo { grid-area: abajo; }
 
-        #versionTag { margin-top: 20px; font-size: 12px; color: #333; letter-spacing: 2px; text-shadow: 0 0 5px #111; font-weight: bold; }
+        #versionTag { margin-top: 15px; font-size: 12px; color: #333; letter-spacing: 2px; text-shadow: 0 0 5px #111; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -237,15 +250,13 @@
         }
 
         function startMusic() { 
-            const bpm = 145; // Un poco más rápido para dar vibra de Geometry Dash
+            const bpm = 145; 
             const stepTime = (60 / bpm) / 4 * 1000;
             let step = 0;
 
-            // Diferentes notas de bajo según nivel
             const bassNivelBajo = [55, 55, 55, 55, 55, 55, 73.42, 73.42, 87.31, 87.31, 87.31, 87.31, 98, 98, 98, 98];
             const bassNivelAlto = [41.20, 41.20, 49.00, 49.00, 55, 55, 55, 55, 65.41, 65.41, 73.42, 73.42, 82.41, 82.41, 98, 98];
 
-            // Diferentes melodías de arpegio según nivel
             const arpBase = [440, 523.25, 659.25, 523.25, 440, 349.23, 440, 523.25];
             const arpCyber = [587.33, 698.46, 880.00, 698.46, 783.99, 932.33, 1046.50, 932.33];
 
@@ -253,36 +264,28 @@
                 if(isPaused || !soundEnabled || !isPlaying || !musicCtx) return;
                 const currentStep = step % 16;
                 
-                // --- CAPA 1: PERCUSIÓN GEOMETRY DASH EVOLUTIVA ---
                 if (nivelActual >= 3) {
-                    // Ritmo de bombo doble y más agresivo en niveles altos
                     if (currentStep === 0 || currentStep === 6 || currentStep === 8 || currentStep === 14) playKick();
                 } else {
-                    // Ritmo estándar
                     if (currentStep === 0 || currentStep === 8) playKick();
                 }
 
-                // Caja/Snare con Ruido Blanco en niveles intermedios y avanzados
                 if (nivelActual >= 2) {
                     if (currentStep === 4 || currentStep === 12) playNoise(0.18, 1200, 0.35);
                 } else {
                     if (currentStep === 4 || currentStep === 12) playNoise(0.12, 1000, 0.2);
                 }
 
-                // Hi-Hats rápidos en los contratiempos
                 if (currentStep % 2 === 0) {
                     const hihatVol = (nivelActual >= 5) ? 0.15 : 0.08;
                     playNoise(0.04, 7500, hihatVol);
                 }
 
-                // --- CAPA 2: BAJO SINTETIZADO DINÁMICO ---
                 const oscBass = musicCtx.createOscillator();
                 const gainBass = musicCtx.createGain();
                 
-                // Si llegamos a niveles altos, el sintetizador del bajo muta a 'sawtooth' (más rasposo/electrónico)
                 oscBass.type = (nivelActual >= 4) ? 'sawtooth' : 'triangle';
                 
-                // Cambia la progresión de notas musicales según dificultad
                 const notasBajoActual = (nivelActual >= 5) ? bassNivelAlto : bassNivelBajo;
                 oscBass.frequency.setValueAtTime(notasBajoActual[currentStep], musicCtx.currentTime);
                 
@@ -293,24 +296,19 @@
                 oscBass.connect(gainBass).connect(musicCtx.destination);
                 oscBass.start(); oscBass.stop(musicCtx.currentTime + 0.14);
 
-                // --- CAPA 3: MELODÍA / ARPEGIO QUE EVOLUCIONA ---
                 if (currentStep < 8) {
                     const oscArp = musicCtx.createOscillator();
                     const gainArp = musicCtx.createGain();
                     
-                    // Muta el tipo de onda para sonar más cyber y agudo en niveles altos
                     if (nivelActual >= 7) {
-                        oscArp.type = 'sawtooth'; // Sonido agresivo clímax
+                        oscArp.type = 'sawtooth';
                     } else if (nivelActual >= 3) {
-                        oscArp.type = 'square'; // Chiptune marcado
+                        oscArp.type = 'square';
                     } else {
-                        oscArp.type = 'sine'; // Melodía suave inicial
+                        oscArp.type = 'sine';
                     }
 
-                    // Selecciona melodía épica o básica
                     let notaFrec = (nivelActual >= 4) ? arpCyber[currentStep] : arpBase[currentStep];
-                    
-                    // Sube una octava (multiplica x2) en niveles intermedios para dar sensación de velocidad
                     if (nivelActual >= 2 && nivelActual < 4) notaFrec *= 2;
 
                     oscArp.frequency.setValueAtTime(notaFrec, musicCtx.currentTime);
@@ -335,11 +333,9 @@
         function playDeathSound() { playTone(300, 0.3, 'sawtooth', 0.4); setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.5), 200); }
         function playLevelUpSound() { playTone(1000, 0.08, 'sine', 0.3); setTimeout(() => playTone(1500, 0.15, 'sine', 0.3), 80); }
 
-        // --- PALETA DE COLORES NEÓN ---
         const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff', '#ff007f'];
         let colorNeonActual = '#0ff';
 
-        // --- SISTEMA DE VELOCIDAD EQUILIBRADO ---
         let nivelActual = 0; 
         let frameDelay = 16; 
         
@@ -370,7 +366,6 @@
             if (nuevoNivel > nivelActual) { 
                 nivelActual = nuevoNivel;
                 
-                // Curva calibrada súper suave (Tope original = 10)
                 const tablaRetrasos = [16, 15, 14, 13, 12, 11, 10.5, 10];
                 frameDelay = tablaRetrasos[nivelActual];
                 
