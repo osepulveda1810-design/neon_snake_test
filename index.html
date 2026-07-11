@@ -2,8 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon Snake V2.4 - Final Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>Neon Snake V2.4 - Ultimate Edition</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="icon" href="icons/icon-192.png">
@@ -87,6 +91,7 @@
         .rank-list li { margin: 10px 0; font-size: 20px; border-bottom: 1px solid #222; padding-bottom: 8px; display: flex; justify-content: space-between;}
         .rank-pos { color: #0ff; } .rank-pts { color: #ffff00; }
 
+        /* --- SPLASH DE CARGA NATIVO Y CORREGIDO --- */
         #splashOverlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
             background-color: #000; display: flex; flex-direction: column;
@@ -108,24 +113,22 @@
         }
         #splashSub { color: #555; font-size: 14px; margin-top: 20px; letter-spacing: 6px; text-transform: uppercase; }
 
-        /* --- CONTROLADORES AGRANDADOS Y OPTIMIZADOS PARA HITBOX --- */
+        /* --- CONTROLADORES HÍBRIDOS MULTITÁCTILES AGRANDADOS --- */
         #controles { 
             margin-top: 15px; 
             display: grid; 
             grid-template-areas: ". arriba ." "izquierda . derecha" ". abajo ."; 
-            gap: 12px; /* Un poco más de aire para evitar tocar dos a la vez */
+            gap: 12px; 
         }
         .boton-flecha {
-            width: 76px; /* Incrementado de 65px a 76px */
-            height: 76px; /* Incrementado de 65px a 76px */
-            font-size: 30px; /* Flechas más legibles */
+            width: 76px; 
+            height: 76px; 
+            font-size: 30px; 
             background: transparent; color: #0ff;
             border: 2px solid #0ff; border-radius: 14px; cursor: pointer; display: flex;
             align-items: center; justify-content: center;
             box-shadow: 0 0 10px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.2); transition: all 0.5s ease;
             -webkit-tap-highlight-color: transparent;
-            
-            /* Truco UX: Caja virtual exterior invisible de 6px que amplía el rango táctil del dedo */
             box-sizing: border-box;
             outline: 6px solid transparent; 
         }
@@ -200,7 +203,7 @@
         const grid = 20;
         let count = 0, score = 0, isPaused = false, isPlaying = false, isGameOver = false;
         
-        // --- SISTEMA DE AUDIO DINÁMICO EVOLUTIVO (ESTILO GEOMETRY DASH) ---
+        // --- SISTEMA DE AUDIO DINÁMICO EVOLUTIVO (DEDICADO) ---
         let audioCtx, musicCtx, soundEnabled = true, musicInterval;
         let noiseBuffer = null;
 
@@ -262,18 +265,18 @@
 
             musicInterval = setInterval(() => {
                 if(isPaused || !soundEnabled || !isPlaying || !musicCtx) return;
-                const currentStep = step % 16;
+                const currentStep = step % 8; // Optimizado a 8 pasos reales por compás GD (Ahorro de recursos)
                 
                 if (nivelActual >= 3) {
-                    if (currentStep === 0 || currentStep === 6 || currentStep === 8 || currentStep === 14) playKick();
+                    if (currentStep === 0 || currentStep === 4) playKick();
                 } else {
-                    if (currentStep === 0 || currentStep === 8) playKick();
+                    if (currentStep === 0) playKick();
                 }
 
                 if (nivelActual >= 2) {
-                    if (currentStep === 4 || currentStep === 12) playNoise(0.18, 1200, 0.35);
+                    if (currentStep === 2 || currentStep === 6) playNoise(0.18, 1200, 0.35);
                 } else {
-                    if (currentStep === 4 || currentStep === 12) playNoise(0.12, 1000, 0.2);
+                    if (currentStep === 2) playNoise(0.12, 1000, 0.2);
                 }
 
                 if (currentStep % 2 === 0) {
@@ -283,13 +286,12 @@
 
                 const oscBass = musicCtx.createOscillator();
                 const gainBass = musicCtx.createGain();
-                
                 oscBass.type = (nivelActual >= 4) ? 'sawtooth' : 'triangle';
                 
                 const notasBajoActual = (nivelActual >= 5) ? bassNivelAlto : bassNivelBajo;
-                oscBass.frequency.setValueAtTime(notasBajoActual[currentStep], musicCtx.currentTime);
+                oscBass.frequency.setValueAtTime(notasBajoActual[step % 16], musicCtx.currentTime);
                 
-                const bassVol = (currentStep === 0 || currentStep === 8) ? 0.25 : 0.15;
+                const bassVol = (currentStep === 0 || currentStep === 4) ? 0.25 : 0.15;
                 gainBass.gain.setValueAtTime(bassVol, musicCtx.currentTime);
                 gainBass.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.14);
                 
@@ -335,12 +337,10 @@
 
         const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff', '#ff007f'];
         let colorNeonActual = '#0ff';
-
         let nivelActual = 0; 
         let frameDelay = 16; 
         
         let particulas = [], flashOpacity = 0;
-        
         let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         let inputQueue = []; 
 
@@ -365,7 +365,6 @@
 
             if (nuevoNivel > nivelActual) { 
                 nivelActual = nuevoNivel;
-                
                 const tablaRetrasos = [16, 15, 14, 13, 12, 11, 10.5, 10];
                 frameDelay = tablaRetrasos[nivelActual];
                 
@@ -417,7 +416,7 @@
         }
         
         function hayPartidaGuardada() { return localStorage.getItem('neonSnakeSave') !== null; }
-        function guardarRanking(p) { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); r.push(p); r.sort((a, b) => b - a); if(r.length > 5) r = r.slice(0, 5); localStorage.setItem('neonSnakeRanking', JSON.stringify(r)); }
+        function guardarRanking(p) { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); r.push(p); r.sort((a, b) => b - a); if(r.length > 15) r = r.slice(0, 15); localStorage.setItem('neonSnakeRanking', JSON.stringify(r)); }
         function mostrarRanking() { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); let h = ''; if (r.length === 0) h = '<li style="color:#888; justify-content:center;">Sin registros</li>'; else r.forEach((p, i) => { h += `<li><span class="rank-pos">#${i + 1}</span> <span class="rank-pts">${p} pts</span></li>`; }); document.getElementById('rankList').innerHTML = h; ocultarTodo(); mostrar('rankingOverlay'); }
 
         function ocultarTodo() { ['menuOverlay', 'gameOverOverlay', 'rankingOverlay', 'pauseOverlay', 'splashOverlay'].forEach(id => { document.getElementById(id).style.display = 'none'; }); }
@@ -506,7 +505,7 @@
         addTouchEvt('btnVolverMenu', irAlMenu);
         addTouchEvt('btnReiniciar', () => iniciarJuego(false));
         addTouchEvt('btnSalirMenu', irAlMenu);
-        addTouchEvt('btnContinuar', () => { ocultarTodo(); encenderJuego(); isPaused = false; });
+        addTouchEvt('btnContinuar', () => { ocultorTodo(); encenderJuego(); isPaused = false; });
         addTouchEvt('btnGuardarPausa', () => { guardarEstado(); irAlMenu(); });
         addTouchEvt('btnVelocidad', () => { initAudio(); });
         addTouchEvt('btnSonido', () => { initAudio(); soundEnabled=!soundEnabled; document.getElementById('btnSonido').innerText=soundEnabled?"♪ ON":"♪ OFF"; });
@@ -515,6 +514,7 @@
         document.getElementById('btnPausa').addEventListener('click', accionPausa);
         document.getElementById('btnPausa').addEventListener('touchstart', e => { e.preventDefault(); accionPausa(); });
 
+        // Fix de Teclado nativo: Letra 'P' o Espacio pausan. Flechas direccionales estándar.
         document.addEventListener('keydown', function(e) {
             if (e.key === ' ' || e.key === 'p' || e.key === 'P') { e.preventDefault(); if(!isPlaying && !isGameOver) return; accionPausa(); return; }
             if(!isPlaying || isPaused || isGameOver) return;
@@ -535,6 +535,7 @@
         agregarEventoControl('btnDerecha', grid, 0); 
         agregarEventoControl('btnAbajo', 0, grid);
 
+        // Desactivación del Splash tras carga fluida
         setTimeout(() => { document.getElementById('splashOverlay').style.display = 'none'; irAlMenu(); }, 3500);
 
         requestAnimationFrame(loop);
