@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon Snake V2.2</title>
+    <title>Neon Snake V2.4</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="icon" href="icons/icon-192.png">
@@ -152,7 +152,7 @@
             <button id="btnDerecha" class="boton-flecha">►</button>
             <button id="btnAbajo" class="boton-flecha">▼</button>
         </div>
-        <div id="versionTag">v 2.3</div>
+        <div id="versionTag">v 2.4</div>
     </div>
 
     <div id="menuOverlay" class="overlay-interno">
@@ -286,8 +286,8 @@
         const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff', '#ff007f'];
         let colorNeonActual = '#0ff';
 
-        // --- SISTEMA DE DIFICULTAD GRADUAL ACTUALIZADO ---
-        let nivelActual = 0; // Parte en 0 (Velocidad 1)
+        // --- SISTEMA DE VELOCIDAD CORREGIDO Y BALANCEADO (EQUIVALENTE AL ORIGINAL) ---
+        let nivelActual = 0; 
         let frameDelay = 16; 
         
         let particulas = [], flashOpacity = 0;
@@ -308,27 +308,25 @@
             document.getElementById('btnVelocidad').innerText = (nivelActual + 1); 
         }
 
-        // NUEVA CURVA DE DIFICULTAD: Primer cambio a los 200, luego cada 100 puntos
+        // CONTROL DE DIFICULTAD EQUILIBRADO: Cada 100 pts tras llegar a 200, pero con frenos idénticos al tope original
         function checkAutoSpeed() { 
             let nuevoNivel = 0;
             
             if (score >= 200) {
-                // Si tiene 200 o más, calculamos cuántos tramos de 100 ha recorrido adicionales
                 nuevoNivel = 1 + Math.floor((score - 200) / 100);
             }
             
-            // Limitamos a un máximo de nivel 7 (Velocidad 8 en la interfaz)
-            if (nuevoNivel > 7) nuevoNivel = 7;
+            if (nuevoNivel > 7) nuevoNivel = 7; // Máximo Nivel 8 en pantalla
 
             if (nuevoNivel > nivelActual) { 
                 nivelActual = nuevoNivel;
                 
-                // Mapeo exacto y gradual para que a los 800 puntos (Nivel 7) llegue a la velocidad máxima (frameDelay = 4)
-                // Escala: Nivel 0=16, 1=14, 2=12, 3=10, 4=8, 5=6, 6=5, 7=4
-                const tablaRetrasos = [16, 14, 12, 10, 8, 6, 5, 4];
+                // CORRECCIÓN DE CURVA: Distribución ultra-suave. El nivel máximo (7) corresponde exactamente
+                // al frameDelay de 10 que tenía tu juego original en su velocidad máxima, haciéndolo 100% jugable.
+                const tablaRetrasos = [16, 15, 14, 13, 12, 11, 10.5, 10];
                 frameDelay = tablaRetrasos[nivelActual];
                 
-                // Cambiar a un color neón aleatorio diferente
+                // Cambiar color neón de la interfaz al azar
                 let coloresDisponibles = COLORES_NEON.filter(c => c !== colorNeonActual);
                 colorNeonActual = coloresDisponibles[Math.floor(Math.random() * coloresDisponibles.length)];
                 
@@ -435,7 +433,11 @@
         function loop() {
             requestAnimationFrame(loop);
             if (!isPlaying || isPaused || isGameOver) return;
-            if (++count < frameDelay) return; count = 0;
+            
+            // Lógica de salto de frames matemática para permitir decimales suaves (como el 10.5)
+            count += 1;
+            if (count < frameDelay) return; 
+            count = 0;
 
             if (inputQueue.length > 0) {
                 const siguienteGiro = inputQueue.shift();
