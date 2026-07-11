@@ -152,7 +152,7 @@
             <button id="btnDerecha" class="boton-flecha">►</button>
             <button id="btnAbajo" class="boton-flecha">▼</button>
         </div>
-        <div id="versionTag">v 2.2</div>
+        <div id="versionTag">v 2.3</div>
     </div>
 
     <div id="menuOverlay" class="overlay-interno">
@@ -282,19 +282,17 @@
         function playDeathSound() { playTone(300, 0.3, 'sawtooth', 0.4); setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.5), 200); }
         function playLevelUpSound() { playTone(1200, 0.1, 'sine', 0.3); setTimeout(() => playTone(1600, 0.2, 'sine', 0.3), 100); }
 
-        // --- CONFIGURACIÓN GENERAL Y MECÁNICA DE COLORES NEÓN ---
-        // Lista de colores de la temática Neón
-        const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff'];
-        let colorNeonActual = '#0ff'; // Color inicial (Cian)
+        // --- PALETA DE COLORES NEÓN ---
+        const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff', '#ff007f'];
+        let colorNeonActual = '#0ff';
 
-        // Sistema de velocidad dinámica (cada 300 puntos reduce el frameDelay para ir más rápido)
-        // Partimos en velocidad Base con retraso de 16 frames. Cada nivel baja de a 3 frames.
-        let nivelActual = 0;
+        // --- SISTEMA DE DIFICULTAD GRADUAL ACTUALIZADO ---
+        let nivelActual = 0; // Parte en 0 (Velocidad 1)
         let frameDelay = 16; 
         
         let particulas = [], flashOpacity = 0;
         
-        // Variables de movimiento con cola optimizada (Anti-Bugs)
+        // Input Buffer (Anti-Bugs)
         let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         let inputQueue = []; 
 
@@ -310,45 +308,50 @@
             document.getElementById('btnVelocidad').innerText = (nivelActual + 1); 
         }
 
-        // NUEVO: Monitorea la puntuación para subir velocidad y cambiar color dinámicamente cada 300 puntos
+        // NUEVA CURVA DE DIFICULTAD: Primer cambio a los 200, luego cada 100 puntos
         function checkAutoSpeed() { 
-            let nuevoNivel = Math.floor(score / 300); 
+            let nuevoNivel = 0;
+            
+            if (score >= 200) {
+                // Si tiene 200 o más, calculamos cuántos tramos de 100 ha recorrido adicionales
+                nuevoNivel = 1 + Math.floor((score - 200) / 100);
+            }
+            
+            // Limitamos a un máximo de nivel 7 (Velocidad 8 en la interfaz)
+            if (nuevoNivel > 7) nuevoNivel = 7;
+
             if (nuevoNivel > nivelActual) { 
                 nivelActual = nuevoNivel;
                 
-                // Reducimos el frameDelay (mínimo 3 frames para que no sea injugable)
-                frameDelay = Math.max(3, 16 - (nivelActual * 3)); 
+                // Mapeo exacto y gradual para que a los 800 puntos (Nivel 7) llegue a la velocidad máxima (frameDelay = 4)
+                // Escala: Nivel 0=16, 1=14, 2=12, 3=10, 4=8, 5=6, 6=5, 7=4
+                const tablaRetrasos = [16, 14, 12, 10, 8, 6, 5, 4];
+                frameDelay = tablaRetrasos[nivelActual];
                 
-                // Cambiar a un color neón aleatorio diferente al actual
+                // Cambiar a un color neón aleatorio diferente
                 let coloresDisponibles = COLORES_NEON.filter(c => c !== colorNeonActual);
                 colorNeonActual = coloresDisponibles[Math.floor(Math.random() * coloresDisponibles.length)];
                 
-                // Aplicar el nuevo color neón dinámicamente en los elementos del DOM de la interfaz
                 aplicarColorNeonInterfaz(colorNeonActual);
-                
                 updateSpeedUI(); 
                 playLevelUpSound(); 
             } 
         }
 
         function aplicarColorNeonInterfaz(color) {
-            // Título
             const titulo = document.getElementById('tituloJuego');
             titulo.style.color = color;
             titulo.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
             
-            // Canvas
             canvas.style.borderColor = color;
-            canvas.style.boxShadow = `0 0 15px ${color}4d, inset 0 0 15px ${color}1a`; // Añade opacidad en hex
+            canvas.style.boxShadow = `0 0 15px ${color}4d, inset 0 0 15px ${color}1a`;
             
-            // Botones de control en pantalla
             document.querySelectorAll('.boton-flecha').forEach(btn => {
                 btn.style.color = color;
                 btn.style.borderColor = color;
                 btn.style.boxShadow = `0 0 10px ${color}, inset 0 0 10px ${color}33`;
             });
 
-            // Botón de sonido de la interfaz superior
             const btnS = document.getElementById('btnSonido');
             btnS.style.color = color;
             btnS.style.borderColor = color;
@@ -356,7 +359,7 @@
         }
 
         function restaurarColorInicial() {
-            colorNeonActual = '#0ff'; // Reset a Cian
+            colorNeonActual = '#0ff';
             aplicarColorNeonInterfaz('#0ff');
         }
 
@@ -450,7 +453,6 @@
             if (!manzanaAmarilla.activa) { manzanaAmarilla.timerSpawn--; if (manzanaAmarilla.timerSpawn <= 0) { let np=generarPosicion(); manzanaAmarilla.x=np.x; manzanaAmarilla.y=np.y; manzanaAmarilla.activa=true; manzanaAmarilla.timerVida=TIEMPO_VIDA_BONUS; manzanaAmarilla.timerSpawn=TIEMPO_RESPAWN_AMARILLA; } } else { manzanaAmarilla.timerVida--; if (manzanaAmarilla.timerVida <= 0) manzanaAmarilla.activa = false; }
             dibujarManzana(manzanaRoja, '#ff073a'); if (manzanaVerde.activa) dibujarManzana(manzanaVerde, '#39ff14'); if (manzanaAmarilla.activa) dibujarManzana(manzanaAmarilla, '#ffff00');
             
-            // DIBUJAR SERPIENTE: Usa el color neón actual de los niveles para el cuerpo
             snake.cells.forEach(function(cell, index) { 
                 ctx.shadowBlur = 15; 
                 ctx.shadowColor = colorNeonActual; 
@@ -484,10 +486,7 @@
         addTouchEvt('btnSalirMenu', irAlMenu);
         addTouchEvt('btnContinuar', () => { ocultarTodo(); encenderJuego(); isPaused = false; });
         addTouchEvt('btnGuardarPausa', () => { guardarEstado(); irAlMenu(); });
-        
-        // Deshabilitamos el cambio manual de velocidad ya que ahora es AUTOMÁTICO por score
         addTouchEvt('btnVelocidad', () => { initAudio(); });
-        
         addTouchEvt('btnSonido', () => { initAudio(); soundEnabled=!soundEnabled; document.getElementById('btnSonido').innerText=soundEnabled?"♪ ON":"♪ OFF"; });
 
         function accionPausa() { initAudio(); isPaused = !isPaused; if (isPaused) { apagarJuego(); mostrar('pauseOverlay'); } else { ocultarTodo(); encenderJuego(); } }
