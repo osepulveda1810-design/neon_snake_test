@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon Snake V2.4</title>
+    <title>Neon Snake V2.4 - Final Edition</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="icon" href="icons/icon-192.png">
@@ -152,7 +152,7 @@
             <button id="btnDerecha" class="boton-flecha">►</button>
             <button id="btnAbajo" class="boton-flecha">▼</button>
         </div>
-        <div id="versionTag">v 2.4</div>
+        <div id="versionTag">v 2.4 Final</div>
     </div>
 
     <div id="menuOverlay" class="overlay-interno">
@@ -187,7 +187,7 @@
         const grid = 20;
         let count = 0, score = 0, isPaused = false, isPlaying = false, isGameOver = false;
         
-        // --- SISTEMA DE AUDIO CON AISLAMIENTO DE VOCES ---
+        // --- SISTEMA DE AUDIO DINÁMICO EVOLUTIVO (ESTILO GEOMETRY DASH) ---
         let audioCtx, musicCtx, soundEnabled = true, musicInterval;
         let noiseBuffer = null;
 
@@ -237,62 +237,114 @@
         }
 
         function startMusic() { 
-            const bpm = 140; 
+            const bpm = 145; // Un poco más rápido para dar vibra de Geometry Dash
             const stepTime = (60 / bpm) / 4 * 1000;
             let step = 0;
-            const bassNotes = [55, 55, 55, 55, 55, 55, 73.42, 73.42, 87.31, 87.31, 87.31, 87.31, 98, 98, 98, 98];
-            const arpNotes = [440, 523.25, 659.25, 523.25, 440, 349.23, 440, 523.25];
+
+            // Diferentes notas de bajo según nivel
+            const bassNivelBajo = [55, 55, 55, 55, 55, 55, 73.42, 73.42, 87.31, 87.31, 87.31, 87.31, 98, 98, 98, 98];
+            const bassNivelAlto = [41.20, 41.20, 49.00, 49.00, 55, 55, 55, 55, 65.41, 65.41, 73.42, 73.42, 82.41, 82.41, 98, 98];
+
+            // Diferentes melodías de arpegio según nivel
+            const arpBase = [440, 523.25, 659.25, 523.25, 440, 349.23, 440, 523.25];
+            const arpCyber = [587.33, 698.46, 880.00, 698.46, 783.99, 932.33, 1046.50, 932.33];
 
             musicInterval = setInterval(() => {
                 if(isPaused || !soundEnabled || !isPlaying || !musicCtx) return;
                 const currentStep = step % 16;
-                if (currentStep === 0 || currentStep === 8) playKick();
-                if (currentStep === 4 || currentStep === 12) playNoise(0.15, 1000, 0.3);
-                if (currentStep % 2 === 0) playNoise(0.05, 7000, 0.1);
-
-                const osc = musicCtx.createOscillator();
-                const gain = musicCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(bassNotes[currentStep], musicCtx.currentTime);
-                const bassVol = (currentStep === 0 || currentStep === 8) ? 0.2 : 0.12;
-                gain.gain.setValueAtTime(bassVol, musicCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.15);
-                osc.connect(gain).connect(musicCtx.destination);
-                osc.start(); osc.stop(musicCtx.currentTime + 0.15);
-
-                if (currentStep < 8) {
-                    const osc2 = musicCtx.createOscillator();
-                    const gain2 = musicCtx.createGain();
-                    osc2.type = 'square';
-                    osc2.frequency.setValueAtTime(arpNotes[currentStep], musicCtx.currentTime);
-                    gain2.gain.setValueAtTime(0.08, musicCtx.currentTime);
-                    gain2.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.08);
-                    osc2.connect(gain2).connect(musicCtx.destination);
-                    osc2.start(); osc2.stop(musicCtx.currentTime + 0.08);
+                
+                // --- CAPA 1: PERCUSIÓN GEOMETRY DASH EVOLUTIVA ---
+                if (nivelActual >= 3) {
+                    // Ritmo de bombo doble y más agresivo en niveles altos
+                    if (currentStep === 0 || currentStep === 6 || currentStep === 8 || currentStep === 14) playKick();
+                } else {
+                    // Ritmo estándar
+                    if (currentStep === 0 || currentStep === 8) playKick();
                 }
+
+                // Caja/Snare con Ruido Blanco en niveles intermedios y avanzados
+                if (nivelActual >= 2) {
+                    if (currentStep === 4 || currentStep === 12) playNoise(0.18, 1200, 0.35);
+                } else {
+                    if (currentStep === 4 || currentStep === 12) playNoise(0.12, 1000, 0.2);
+                }
+
+                // Hi-Hats rápidos en los contratiempos
+                if (currentStep % 2 === 0) {
+                    const hihatVol = (nivelActual >= 5) ? 0.15 : 0.08;
+                    playNoise(0.04, 7500, hihatVol);
+                }
+
+                // --- CAPA 2: BAJO SINTETIZADO DINÁMICO ---
+                const oscBass = musicCtx.createOscillator();
+                const gainBass = musicCtx.createGain();
+                
+                // Si llegamos a niveles altos, el sintetizador del bajo muta a 'sawtooth' (más rasposo/electrónico)
+                oscBass.type = (nivelActual >= 4) ? 'sawtooth' : 'triangle';
+                
+                // Cambia la progresión de notas musicales según dificultad
+                const notasBajoActual = (nivelActual >= 5) ? bassNivelAlto : bassNivelBajo;
+                oscBass.frequency.setValueAtTime(notasBajoActual[currentStep], musicCtx.currentTime);
+                
+                const bassVol = (currentStep === 0 || currentStep === 8) ? 0.25 : 0.15;
+                gainBass.gain.setValueAtTime(bassVol, musicCtx.currentTime);
+                gainBass.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.14);
+                
+                oscBass.connect(gainBass).connect(musicCtx.destination);
+                oscBass.start(); oscBass.stop(musicCtx.currentTime + 0.14);
+
+                // --- CAPA 3: MELODÍA / ARPEGIO QUE EVOLUCIONA ---
+                if (currentStep < 8) {
+                    const oscArp = musicCtx.createOscillator();
+                    const gainArp = musicCtx.createGain();
+                    
+                    // Muta el tipo de onda para sonar más cyber y agudo en niveles altos
+                    if (nivelActual >= 7) {
+                        oscArp.type = 'sawtooth'; // Sonido agresivo clímax
+                    } else if (nivelActual >= 3) {
+                        oscArp.type = 'square'; // Chiptune marcado
+                    } else {
+                        oscArp.type = 'sine'; // Melodía suave inicial
+                    }
+
+                    // Selecciona melodía épica o básica
+                    let notaFrec = (nivelActual >= 4) ? arpCyber[currentStep] : arpBase[currentStep];
+                    
+                    // Sube una octava (multiplica x2) en niveles intermedios para dar sensación de velocidad
+                    if (nivelActual >= 2 && nivelActual < 4) notaFrec *= 2;
+
+                    oscArp.frequency.setValueAtTime(notaFrec, musicCtx.currentTime);
+                    
+                    const arpVol = (nivelActual >= 6) ? 0.09 : 0.06;
+                    gainArp.gain.setValueAtTime(arpVol, musicCtx.currentTime);
+                    gainArp.gain.exponentialRampToValueAtTime(0.001, musicCtx.currentTime + 0.09);
+                    
+                    oscArp.connect(gainArp).connect(musicCtx.destination);
+                    oscArp.start(); oscArp.stop(musicCtx.currentTime + 0.09);
+                }
+                
                 step++;
             }, stepTime);
         }
 
         function playTone(f, d, t='square', v=0.15) { if(!soundEnabled||!audioCtx)return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.setValueAtTime(v,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d); }
-        function playMoveSound() { playTone(900, 0.05, 'square', 0.03); }
+        function playMoveSound() { playTone(900, 0.05, 'square', 0.02); }
         function playEatRedSound() { playTone(600, 0.1, 'square', 0.2); setTimeout(() => playTone(800, 0.1, 'square', 0.2), 50); }
         function playEatGreenSound() { playTone(800, 0.1, 'sawtooth', 0.2); setTimeout(() => playTone(1200, 0.15, 'sawtooth', 0.2), 70); }
         function playEatYellowSound() { playTone(600, 0.15, 'sawtooth', 0.3); setTimeout(() => playTone(900, 0.15, 'sawtooth', 0.3), 100); setTimeout(() => playTone(1400, 0.2, 'sine', 0.4), 200); }
         function playDeathSound() { playTone(300, 0.3, 'sawtooth', 0.4); setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.5), 200); }
-        function playLevelUpSound() { playTone(1200, 0.1, 'sine', 0.3); setTimeout(() => playTone(1600, 0.2, 'sine', 0.3), 100); }
+        function playLevelUpSound() { playTone(1000, 0.08, 'sine', 0.3); setTimeout(() => playTone(1500, 0.15, 'sine', 0.3), 80); }
 
         // --- PALETA DE COLORES NEÓN ---
         const COLORES_NEON = ['#0ff', '#39ff14', '#ff00ff', '#ffff00', '#ff5e00', '#0044ff', '#ffffff', '#ff007f'];
         let colorNeonActual = '#0ff';
 
-        // --- SISTEMA DE VELOCIDAD CORREGIDO Y BALANCEADO (EQUIVALENTE AL ORIGINAL) ---
+        // --- SISTEMA DE VELOCIDAD EQUILIBRADO ---
         let nivelActual = 0; 
         let frameDelay = 16; 
         
         let particulas = [], flashOpacity = 0;
         
-        // Input Buffer (Anti-Bugs)
         let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         let inputQueue = []; 
 
@@ -308,25 +360,20 @@
             document.getElementById('btnVelocidad').innerText = (nivelActual + 1); 
         }
 
-        // CONTROL DE DIFICULTAD EQUILIBRADO: Cada 100 pts tras llegar a 200, pero con frenos idénticos al tope original
         function checkAutoSpeed() { 
             let nuevoNivel = 0;
-            
             if (score >= 200) {
                 nuevoNivel = 1 + Math.floor((score - 200) / 100);
             }
-            
-            if (nuevoNivel > 7) nuevoNivel = 7; // Máximo Nivel 8 en pantalla
+            if (nuevoNivel > 7) nuevoNivel = 7; 
 
             if (nuevoNivel > nivelActual) { 
                 nivelActual = nuevoNivel;
                 
-                // CORRECCIÓN DE CURVA: Distribución ultra-suave. El nivel máximo (7) corresponde exactamente
-                // al frameDelay de 10 que tenía tu juego original en su velocidad máxima, haciéndolo 100% jugable.
+                // Curva calibrada súper suave (Tope original = 10)
                 const tablaRetrasos = [16, 15, 14, 13, 12, 11, 10.5, 10];
                 frameDelay = tablaRetrasos[nivelActual];
                 
-                // Cambiar color neón de la interfaz al azar
                 let coloresDisponibles = COLORES_NEON.filter(c => c !== colorNeonActual);
                 colorNeonActual = coloresDisponibles[Math.floor(Math.random() * coloresDisponibles.length)];
                 
@@ -340,7 +387,6 @@
             const titulo = document.getElementById('tituloJuego');
             titulo.style.color = color;
             titulo.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
-            
             canvas.style.borderColor = color;
             canvas.style.boxShadow = `0 0 15px ${color}4d, inset 0 0 15px ${color}1a`;
             
@@ -366,18 +412,9 @@
             let s = localStorage.getItem('neonSnakeSave'); 
             if (s) { 
                 let e = JSON.parse(s); 
-                snake = e.snake; 
-                score = e.score; 
-                manzanaRoja = e.manzanaRoja; 
-                manzanaVerde = e.manzanaVerde; 
-                manzanaAmarilla = e.manzanaAmarilla; 
-                nivelActual = e.nivelActual || 0; 
-                frameDelay = e.frameDelay || 16;
-                colorNeonActual = e.colorNeonActual || '#0ff';
-                inputQueue = []; 
-                
-                aplicarColorNeonInterfaz(colorNeonActual);
-                updateSpeedUI(); 
+                snake = e.snake; score = e.score; manzanaRoja = e.manzanaRoja; manzanaVerde = e.manzanaVerde; manzanaAmarilla = e.manzanaAmarilla; 
+                nivelActual = e.nivelActual || 0; frameDelay = e.frameDelay || 16; colorNeonActual = e.colorNeonActual || '#0ff';
+                inputQueue = []; aplicarColorNeonInterfaz(colorNeonActual); updateSpeedUI(); 
                 document.getElementById('puntuacion').innerText = "PUNTOS: " + score; 
                 return true; 
             } 
@@ -386,7 +423,6 @@
         
         function hayPartidaGuardada() { return localStorage.getItem('neonSnakeSave') !== null; }
         function guardarRanking(p) { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); r.push(p); r.sort((a, b) => b - a); if(r.length > 5) r = r.slice(0, 5); localStorage.setItem('neonSnakeRanking', JSON.stringify(r)); }
-        
         function mostrarRanking() { let r = JSON.parse(localStorage.getItem('neonSnakeRanking') || '[]'); let h = ''; if (r.length === 0) h = '<li style="color:#888; justify-content:center;">Sin registros</li>'; else r.forEach((p, i) => { h += `<li><span class="rank-pos">#${i + 1}</span> <span class="rank-pts">${p} pts</span></li>`; }); document.getElementById('rankList').innerHTML = h; ocultarTodo(); mostrar('rankingOverlay'); }
 
         function ocultarTodo() { ['menuOverlay', 'gameOverOverlay', 'rankingOverlay', 'pauseOverlay', 'splashOverlay'].forEach(id => { document.getElementById(id).style.display = 'none'; }); }
@@ -398,10 +434,7 @@
         
         function resetGameVariables() { 
             snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 }; 
-            inputQueue = []; 
-            score = 0; 
-            nivelActual = 0; 
-            frameDelay = 16; 
+            inputQueue = []; score = 0; nivelActual = 0; frameDelay = 16; 
             manzanaRoja = generarPosicion(); 
             manzanaVerde = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 100 }; 
             manzanaAmarilla = { x: 0, y: 0, activa: false, timerVida: 0, timerSpawn: 200 }; 
@@ -416,15 +449,10 @@
         function cambiarDireccion(ndx, ndy) { 
             initAudio(); 
             if(!isPlaying || isPaused || isGameOver) return; 
-            
             let ultimaD = inputQueue.length > 0 ? inputQueue[inputQueue.length - 1] : { dx: snake.dx, dy: snake.dy };
-
             if (ndx === -ultimaD.dx && ndy === -ultimaD.dy) return;
             if (ndx === ultimaD.dx && ndy === ultimaD.dy) return; 
-
-            if (inputQueue.length < 2) {
-                inputQueue.push({ dx: ndx, dy: ndy });
-            }
+            if (inputQueue.length < 2) inputQueue.push({ dx: ndx, dy: ndy });
         }
         
         function dibujarGrid() { ctx.strokeStyle='rgba(0,255,255,0.03)';ctx.lineWidth=1;for(let i=0;i<=canvas.width;i+=grid){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,canvas.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(canvas.width,i);ctx.stroke();} }
@@ -434,15 +462,13 @@
             requestAnimationFrame(loop);
             if (!isPlaying || isPaused || isGameOver) return;
             
-            // Lógica de salto de frames matemática para permitir decimales suaves (como el 10.5)
             count += 1;
             if (count < frameDelay) return; 
             count = 0;
 
             if (inputQueue.length > 0) {
                 const siguienteGiro = inputQueue.shift();
-                snake.dx = siguienteGiro.dx;
-                snake.dy = siguienteGiro.dy;
+                snake.dx = siguienteGiro.dx; snake.dy = siguienteGiro.dy;
             }
 
             playMoveSound(); ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height); dibujarGrid();
@@ -451,25 +477,24 @@
             if (snake.x < 0) snake.x = canvas.width - grid; else if (snake.x >= canvas.width) snake.x = 0;
             if (snake.y < 0) snake.y = canvas.height - grid; else if (snake.y >= canvas.height) snake.y = 0;
             snake.cells.unshift({ x: snake.x, y: snake.y }); if (snake.cells.length > snake.maxCells) snake.cells.pop();
+            
             if (!manzanaVerde.activa) { manzanaVerde.timerSpawn--; if (manzanaVerde.timerSpawn <= 0) { let np=generarPosicion(); manzanaVerde.x=np.x; manzanaVerde.y=np.y; manzanaVerde.activa=true; manzanaVerde.timerVida=TIEMPO_VIDA_BONUS; manzanaVerde.timerSpawn=TIEMPO_RESPAWN_VERDE; } } else { manzanaVerde.timerVida--; if (manzanaVerde.timerVida <= 0) manzanaVerde.activa = false; }
             if (!manzanaAmarilla.activa) { manzanaAmarilla.timerSpawn--; if (manzanaAmarilla.timerSpawn <= 0) { let np=generarPosicion(); manzanaAmarilla.x=np.x; manzanaAmarilla.y=np.y; manzanaAmarilla.activa=true; manzanaAmarilla.timerVida=TIEMPO_VIDA_BONUS; manzanaAmarilla.timerSpawn=TIEMPO_RESPAWN_AMARILLA; } } else { manzanaAmarilla.timerVida--; if (manzanaAmarilla.timerVida <= 0) manzanaAmarilla.activa = false; }
+            
             dibujarManzana(manzanaRoja, '#ff073a'); if (manzanaVerde.activa) dibujarManzana(manzanaVerde, '#39ff14'); if (manzanaAmarilla.activa) dibujarManzana(manzanaAmarilla, '#ffff00');
             
             snake.cells.forEach(function(cell, index) { 
-                ctx.shadowBlur = 15; 
-                ctx.shadowColor = colorNeonActual; 
+                ctx.shadowBlur = 15; ctx.shadowColor = colorNeonActual; 
                 ctx.fillStyle = (index === 0) ? '#ffffff' : colorNeonActual; 
                 ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2); 
                 ctx.shadowBlur = 0; 
                 for (let i = index + 1; i < snake.cells.length; i++) { 
-                    if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) { 
-                        triggerGameOver(); 
-                        return; 
-                    } 
+                    if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) { triggerGameOver(); return; } 
                 } 
             });
             
             for (let i = particulas.length - 1; i >= 0; i--) { let p=particulas[i]; p.x+=p.dx; p.y+=p.dy; p.life-=0.04; if(p.life<=0){particulas.splice(i,1);continue;} ctx.shadowBlur=10;ctx.shadowColor=p.color;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.shadowBlur=0; }
+            
             let head = snake.cells[0];
             if (head.x === manzanaRoja.x && head.y === manzanaRoja.y) { score += 10; playEatRedSound(); crearExplosion(manzanaRoja.x + grid/2, manzanaRoja.y + grid/2, '#ff073a'); manzanaRoja = generarPosicion(); snake.maxCells++; }
             if (manzanaVerde.activa && head.x === manzanaVerde.x && head.y === manzanaVerde.y) { score += 20; playEatGreenSound(); crearExplosion(manzanaVerde.x + grid/2, manzanaVerde.y + grid/2, '#39ff14'); manzanaVerde.activa = false; manzanaVerde.timerSpawn = TIEMPO_RESPAWN_VERDE; snake.maxCells++; }
@@ -515,10 +540,7 @@
         agregarEventoControl('btnDerecha', grid, 0); 
         agregarEventoControl('btnAbajo', 0, grid);
 
-        setTimeout(() => { 
-            document.getElementById('splashOverlay').style.display = 'none'; 
-            irAlMenu(); 
-        }, 3500);
+        setTimeout(() => { document.getElementById('splashOverlay').style.display = 'none'; irAlMenu(); }, 3500);
 
         requestAnimationFrame(loop);
 
